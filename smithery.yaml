@@ -1,0 +1,32 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - collectionName
+    properties:
+      qdrantUrl:
+        type: string
+        description: The URL of the Qdrant server. Cannot be used together with
+          qdrantLocalPath.
+      qdrantLocalPath:
+        type: string
+        description: The local path to the Qdrant database. Cannot be used together with
+          qdrantUrl.
+      qdrantApiKey:
+        type: string
+        description: The API key for the Qdrant server.
+      collectionName:
+        type: string
+        description: The name of the collection to use or create.
+      fastembedModelName:
+        type: string
+        default: sentence-transformers/all-MiniLM-L6-v2
+        description: The embedding model to use.
+  commandFunction:
+    # A function that produces the CLI command to start the MCP on stdio.
+    |-
+    (config) => { const args = ['uv', 'run', 'mcp-server-qdrant']; if(config.qdrantUrl) { args.push('--qdrant-url', config.qdrantUrl); } if(config.qdrantLocalPath) { args.push('--qdrant-local-path', config.qdrantLocalPath); } if(config.qdrantApiKey) { args.push('--qdrant-api-key', config.qdrantApiKey); } args.push('--collection-name', config.collectionName); args.push('--fastembed-model-name', config.fastembedModelName || 'sentence-transformers/all-MiniLM-L6-v2'); return { command: 'uv', args: args }; }
