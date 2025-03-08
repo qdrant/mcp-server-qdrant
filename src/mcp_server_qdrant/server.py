@@ -133,8 +133,7 @@ def serve(
     "--fastembed-model-name",
     envvar="FASTEMBED_MODEL_NAME",
     required=False,
-    help="FastEmbed model name",
-    default="sentence-transformers/all-MiniLM-L6-v2",
+    help="FastEmbed model name"
 )
 @click.option(
     "--embedding-provider",
