@@ -64,10 +64,10 @@ def serve(
                             "type": "string",
                             "description": "The query to search for in the memories",
                         },
-                        "collection_name": {
+                        **({"collection_name": {
                             "type": "string",
                             "description": collection_name_description,
-                        },
+                        }} if qdrant_connector._multi_collection_mode else {}),
                     },
                     "required": ["query"],
                 },
@@ -88,10 +88,6 @@ def serve(
                             "information": {
                                 "type": "string",
                             },
-                            "collection_name": {
-                                "type": "string",
-                                "description": collection_name_description,
-                            },
                             "replace_memory_ids": {
                                 "type": "array",
                                 "items": {
@@ -99,6 +95,10 @@ def serve(
                                 },
                                 "description": "Optional list of memory IDs to replace with this new memory.",
                             },
+                            **({"collection_name": {
+                                "type": "string",
+                                "description": collection_name_description
+                                }} if qdrant_connector._multi_collection_mode else {}),
                         },
                         "required": ["information"],
                     },
@@ -196,7 +196,7 @@ def serve(
                 raise ValueError("Missing required argument 'information'")
             
             information = arguments["information"]
-            collection_name = arguments.get("collection_name")
+            collection_name = arguments.get("collection_name") if qdrant_connector._multi_collection_mode else None
             replace_memory_ids = arguments.get("replace_memory_ids", [])
             
             # Check if all collections are protected
@@ -226,7 +226,7 @@ def serve(
                 raise ValueError("Missing required argument 'query'")
             
             query = arguments["query"]
-            collection_name = arguments.get("collection_name")
+            collection_name = arguments.get("collection_name") if qdrant_connector._multi_collection_mode else None
             
             try:
                 memories = await qdrant_connector.find_memories(query, collection_name)
@@ -249,11 +249,11 @@ def serve(
                     
                     for memory in memories:
                         # Only show readonly tag if not all collections are protected
-                        readonly_tag = " (readonly)" if memory.get("readonly", False) and not all_collections_protected else ""
+                        readonly_tag = " readonly" if memory.get("readonly", False) and not all_collections_protected else ""
                         content.append(
                             types.TextContent(
                                 type="text", 
-                                text=f"<memory id=\"{memory['id']}\">{memory['content']}</memory>{readonly_tag}"
+                                text=f"<memory id=\"{memory['id']}\"{readonly_tag}>{memory['content']}</memory>"
                             )
                         )
                     
@@ -331,11 +331,11 @@ def serve(
                     
                     for memory in memories:
                         # Only show readonly tag if not all collections are protected
-                        readonly_tag = " (readonly)" if memory.get("readonly", False) and not all_collections_protected else ""
+                        readonly_tag = " readonly" if memory.get("readonly", False) and not all_collections_protected else ""
                         content.append(
                             types.TextContent(
                                 type="text", 
-                                text=f"<memory id=\"{memory['id']}\">{memory['content']}</memory>{readonly_tag}"
+                                text=f"<memory id=\"{memory['id']}\"{readonly_tag}>{memory['content']}</memory>"
                             )
                         )
                         
