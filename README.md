@@ -2,7 +2,7 @@
 
 [![smithery badge](https://smithery.ai/badge/mcp-server-qdrant)](https://smithery.ai/protocol/mcp-server-qdrant)
 
-> The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables seamless integration between LLM applications and external data sources and tools. Whether you're building an AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to connect LLMs with the context they need.
+> The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables seamless integration between LLM applications and external data sources and tools. Whether you’re building an AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to connect LLMs with the context they need.
 
 This repository is an example of how to create a MCP server for [Qdrant](https://qdrant.tech/), a vector search engine.
 
@@ -22,6 +22,7 @@ It acts as a semantic memory layer on top of the Qdrant database.
    - Input:
      - `information` (string): Memory to store
      - `collection_name` (string, optional): Collection to store the memory in (only in multi-collection mode)
+     - `replace_memory_ids` (string[], optional): Array of memory IDs to remove when inserting this memory.
    - Returns: Confirmation message
 2. `qdrant-find-memories`
    - Retrieve a memory from the Qdrant database
@@ -157,8 +158,6 @@ In multi-collection mode:
 - Collections are automatically created when needed
 - The AI can list available collections and search across all collections
 
-You can also provide a JSON configuration for new collections using the `--collection-config` parameter:
-
 ```json
 {
   "qdrant": {
@@ -169,9 +168,7 @@ You can also provide a JSON configuration for new collections using the `--colle
       "http://localhost:6333",
       "--collection-name",
       "global_memories",
-      "--multi-collection-mode",
-      "--collection-config",
-      "{\"distance\": \"cosine\", \"optimizers\": {\"indexing_threshold\": 10000}}"
+      "--multi-collection-mode"
     ]
   }
 }
@@ -183,12 +180,13 @@ The configuration of the server can be also done using environment variables:
 
 - `QDRANT_URL`: URL of the Qdrant server, e.g. `http://localhost:6333`
 - `QDRANT_API_KEY`: API key for the Qdrant server
-- `COLLECTION_NAME`: Name of the collection to use
+- `COLLECTION_NAME`: Name of the collection to use, or if in mutli-collection mode, the default collection name.
 - `EMBEDDING_MODEL`: Name of the embedding model to use
 - `EMBEDDING_PROVIDER`: Embedding provider to use (currently only "fastembed" is supported)
 - `QDRANT_LOCAL_PATH`: Path to the local Qdrant database
 - `MULTI_COLLECTION_MODE`: Enable multi-collection mode for AI agents (set to any value to enable)
 - `COLLECTION_PREFIX`: Prefix for all collections in multi-collection mode
+- `PROTECT_COLLECTIONS`: Prevent deletion of memories, use `*` to block all deletion, or specify collection names to make specific collections insert only.
 
 You cannot provide `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
 
