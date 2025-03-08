@@ -18,6 +18,27 @@ class QdrantConnector:
     :param multi_collection_mode: Whether to enable multi-collection mode for AI agents.
     :param collection_prefix: Prefix for all collections in multi-collection mode.
     :param collection_config: Configuration for new collections created in multi-collection mode.
+        Expected structure:
+        {
+            "vector_params": {
+                "distance": "cosine" | "euclid" | "dot",  # Distance metric to use
+                "size": int,  # Vector size (optional, will be determined automatically if not provided)
+                # Other vector parameters supported by Qdrant
+            },
+            "shard_number": int,  # Optional number of shards in collection
+            "sharding_method": "auto" | "custom",  # Optional sharding method
+            "replication_factor": int,  # Optional replication factor
+            "write_consistency_factor": int,  # Optional write consistency factor
+            "on_disk_payload": bool,  # Optional flag to store payload on disk
+            "hnsw_config": {...},  # Optional HNSW index configuration
+            "wal_config": {...},  # Optional WAL configuration
+            "optimizers_config": {...},  # Optional Qdrant optimizers configuration
+            "init_from": {...},  # Optional initialization from another collection
+            "quantization_config": {...},  # Optional quantization configuration
+            "sparse_vectors": {...},  # Optional sparse vector configuration
+            "strict_mode_config": {...},  # Optional strict mode configuration
+            "timeout": int  # Optional timeout in seconds
+        }
     """
 
     # Regex pattern for valid collection names
@@ -81,24 +102,58 @@ class QdrantConnector:
             # Use the vector name as defined in the embedding provider
             vector_name = self._embedding_provider.get_vector_name()
             
-            # Create the collection with default or custom configuration
+            # Create default vector parameters
             vector_params = models.VectorParams(
                 size=vector_size,
                 distance=models.Distance.COSINE,
             )
             
+            # Prepare collection creation parameters with defaults
+            create_params = {
+                'collection_name': prefixed_name,
+                'vectors_config': {
+                    vector_name: vector_params
+                }
+            }
+            
             # Apply any custom configuration from collection_config
             if self._collection_config:
-                # Here you could apply custom configuration from self._collection_config
-                # For example, different distance metrics, etc.
-                pass
+                # Handle vector parameters if specified
+                if 'vector_params' in self._collection_config:
+                    vector_config = self._collection_config['vector_params']
+                    
+                    # Handle distance metric conversion from string to enum
+                    if 'distance' in vector_config:
+                        distance_str = vector_config['distance'].upper()
+                        if hasattr(models.Distance, distance_str):
+                            vector_params.distance = getattr(models.Distance, distance_str)
+                    
+                    # Apply all other vector parameters
+                    for key, value in vector_config.items():
+                        if key != 'distance' and hasattr(vector_params, key):
+                            setattr(vector_params, key, value)
                 
-            await self._client.create_collection(
-                collection_name=prefixed_name,
-                vectors_config={
-                    vector_name: vector_params
-                },
-            )
+                # Apply all other collection-level parameters
+                for param in [
+                    'optimizers_config', 
+                    'replication_factor', 
+                    'write_consistency_factor',
+                    'on_disk_payload', 
+                    'hnsw_config', 
+                    'wal_config',
+                    'quantization_config', 
+                    'init_from', 
+                    'timeout',
+                    'shard_number',
+                    'sharding_method',
+                    'sparse_vectors',
+                    'strict_mode_config'
+                ]:
+                    if param in self._collection_config:
+                        create_params[param] = self._collection_config[param]
+            
+            # Create the collection with the configured parameters
+            await self._client.create_collection(**create_params)
 
     async def list_collections(self) -> List[str]:
         """
