@@ -62,7 +62,16 @@ class QdrantConnector:
         :param collection_name: The collection name to prefix. If None, use the default collection name.
         :return: The prefixed collection name.
         """
-        if not self._multi_collection_mode or not collection_name:
+        # If not in multi-collection mode or collection_name is None, use the default collection name
+        if not self._multi_collection_mode:
+            return self._collection_name
+            
+        # If collection_name is None or empty, use the default collection name
+        if not collection_name:
+            return self._collection_name
+        
+        # If collection_name is the default collection name, return it as is
+        if collection_name == self._collection_name:
             return self._collection_name
         
         # Validate the collection name
@@ -95,7 +104,7 @@ class QdrantConnector:
         :param point_id: The point ID
         :return: A memory ID in the format "collection:id"
         """
-        # For the default collection, we can just return the point ID
+        # For the default collection in single-collection mode, we can just return the point ID
         if collection_name == self._collection_name and not self._multi_collection_mode:
             return point_id
         return f"{collection_name}{self.MEMORY_ID_SEPARATOR}{point_id}"
@@ -298,6 +307,7 @@ class QdrantConnector:
             if self._is_collection_protected(collection):
                 raise ValueError(f"Collection '{collection}' is protected and cannot be modified.")
                 
+            # Get the prefixed collection name - this handles the default/global collection correctly
             prefixed_name = self._get_prefixed_collection_name(collection)
             
             if prefixed_name not in collection_points:
