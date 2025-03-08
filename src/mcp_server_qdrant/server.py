@@ -1,6 +1,7 @@
 import asyncio
 import importlib.metadata
-from typing import Optional
+import json
+from typing import Optional, Dict, Any, List
 
 import click
 import mcp
@@ -38,7 +39,13 @@ def serve(
         implemented as a resource, as it requires a query to be passed and resources point
         to a very specific piece of data.
         """
-        return [
+        collection_name_description = (
+            "Optional collection name to store the memory in. If not provided, the default collection will be used. "
+            "Collection names must contain only alphanumeric characters, underscores, and hyphens (a-z, A-Z, 0-9, _, -), "
+            "and be between 1 and 64 characters long. Examples: 'work', 'personal_notes', 'project-2023'."
+        )
+        
+        tools = [
             types.Tool(
                 name="qdrant-store-memory",
                 description=(
@@ -49,6 +56,10 @@ def serve(
                     "properties": {
                         "information": {
                             "type": "string",
+                        },
+                        "collection_name": {
+                            "type": "string",
+                            "description": collection_name_description,
                         },
                     },
                     "required": ["information"],
@@ -67,42 +78,171 @@ def serve(
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "The query to search for",
-                        }
+                            "description": "The query to search for in the memories",
+                        },
+                        "collection_name": {
+                            "type": "string",
+                            "description": collection_name_description,
+                        },
                     },
                     "required": ["query"],
                 },
             ),
         ]
+        
+        # Add multi-collection tools if enabled
+        if qdrant_connector._multi_collection_mode:
+            tools.extend([
+                types.Tool(
+                    name="qdrant-list-collections",
+                    description=(
+                        "List all available collections in Qdrant. Use this tool when you need to: \n"
+                        " - See what collections are available \n"
+                        " - Decide which collection to use for storing or retrieving memories"
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                    },
+                ),
+                types.Tool(
+                    name="qdrant-find-memories-across-collections",
+                    description=(
+                        "Look up memories across all collections in Qdrant. Use this tool when you need to: \n"
+                        " - Find memories across different contexts \n"
+                        " - Get a comprehensive view of all stored memories related to a query"
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The query to search for across all collections",
+                            },
+                        },
+                        "required": ["query"],
+                    },
+                ),
+            ])
+        
+        return tools
 
     @server.call_tool()
     async def handle_tool_call(
         name: str, arguments: dict | None
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-        if name not in ["qdrant-store-memory", "qdrant-find-memories"]:
+        valid_tools = ["qdrant-store-memory", "qdrant-find-memories"]
+        
+        # Add multi-collection tools if enabled
+        if qdrant_connector._multi_collection_mode:
+            valid_tools.extend(["qdrant-list-collections", "qdrant-find-memories-across-collections"])
+            
+        if name not in valid_tools:
             raise ValueError(f"Unknown tool: {name}")
 
         if name == "qdrant-store-memory":
             if not arguments or "information" not in arguments:
                 raise ValueError("Missing required argument 'information'")
+            
             information = arguments["information"]
-            await qdrant_connector.store_memory(information)
-            return [types.TextContent(type="text", text=f"Remembered: {information}")]
+            collection_name = arguments.get("collection_name")
+            
+            try:
+                await qdrant_connector.store_memory(information, collection_name)
+                
+                response = f"Remembered: {information}"
+                if collection_name:
+                    response += f" (in collection: {collection_name})"
+                    
+                return [types.TextContent(type="text", text=response)]
+            except ValueError as e:
+                # Return a more user-friendly error message
+                return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
         if name == "qdrant-find-memories":
             if not arguments or "query" not in arguments:
                 raise ValueError("Missing required argument 'query'")
+            
             query = arguments["query"]
-            memories = await qdrant_connector.find_memories(query)
+            collection_name = arguments.get("collection_name")
+            
+            try:
+                memories = await qdrant_connector.find_memories(query, collection_name)
+                
+                content = [
+                    types.TextContent(
+                        type="text", 
+                        text=f"Memories for the query '{query}'" + 
+                             (f" in collection '{collection_name}'" if collection_name else "")
+                    ),
+                ]
+                
+                if not memories:
+                    content.append(
+                        types.TextContent(type="text", text="No memories found.")
+                    )
+                else:
+                    for memory in memories:
+                        content.append(
+                            types.TextContent(type="text", text=f"<memory>{memory}</memory>")
+                        )
+                    
+                return content
+            except ValueError as e:
+                # Return a more user-friendly error message
+                return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+            
+        if name == "qdrant-list-collections":
+            collections = await qdrant_connector.list_collections()
+            
             content = [
                 types.TextContent(
-                    type="text", text=f"Memories for the query '{query}'"
+                    type="text", 
+                    text=f"Available collections:"
                 ),
             ]
-            for memory in memories:
+            
+            if not collections:
                 content.append(
-                    types.TextContent(type="text", text=f"<memory>{memory}</memory>")
+                    types.TextContent(type="text", text="No collections found.")
                 )
+            else:
+                for collection in collections:
+                    content.append(
+                        types.TextContent(type="text", text=f"- {collection}")
+                    )
+                    
+            return content
+            
+        if name == "qdrant-find-memories-across-collections":
+            if not arguments or "query" not in arguments:
+                raise ValueError("Missing required argument 'query'")
+                
+            query = arguments["query"]
+            results = await qdrant_connector.find_memories_across_collections(query)
+            
+            content = [
+                types.TextContent(
+                    type="text", 
+                    text=f"Memories across collections for the query '{query}':"
+                ),
+            ]
+            
+            if not results:
+                content.append(
+                    types.TextContent(type="text", text="No memories found in any collection.")
+                )
+            else:
+                for collection, memories in results.items():
+                    content.append(
+                        types.TextContent(type="text", text=f"\nCollection: {collection}")
+                    )
+                    
+                    for memory in memories:
+                        content.append(
+                            types.TextContent(type="text", text=f"<memory>{memory}</memory>")
+                        )
+                        
             return content
 
         raise ValueError(f"Unknown tool: {name}")
@@ -127,7 +267,7 @@ def serve(
     "--collection-name",
     envvar="COLLECTION_NAME",
     required=True,
-    help="Collection name",
+    help="Collection name (used as the default/global collection in multi-collection mode)",
 )
 @click.option(
     "--fastembed-model-name",
@@ -156,6 +296,25 @@ def serve(
     required=False,
     help="Qdrant local path",
 )
+@click.option(
+    "--multi-collection-mode",
+    envvar="MULTI_COLLECTION_MODE",
+    is_flag=True,
+    help="Enable multi-collection mode for AI agents",
+)
+@click.option(
+    "--collection-prefix",
+    envvar="COLLECTION_PREFIX",
+    required=False,
+    help="Prefix for all collections in multi-collection mode",
+    default="agent_",
+)
+@click.option(
+    "--collection-config",
+    envvar="COLLECTION_CONFIG",
+    required=False,
+    help="JSON configuration for new collections created in multi-collection mode",
+)
 def main(
     qdrant_url: Optional[str],
     qdrant_api_key: str,
@@ -164,6 +323,9 @@ def main(
     embedding_provider: str,
     embedding_model: str,
     qdrant_local_path: Optional[str],
+    multi_collection_mode: bool,
+    collection_prefix: Optional[str],
+    collection_config: Optional[str],
 ):
     # XOR of url and local path, since we accept only one of them
     if not (bool(qdrant_url) ^ bool(qdrant_local_path)):
@@ -178,6 +340,14 @@ def main(
             "Please use --embedding-provider and --embedding-model instead",
             err=True,
         )
+        
+    # Parse collection config if provided
+    parsed_collection_config = None
+    if collection_config:
+        try:
+            parsed_collection_config = json.loads(collection_config)
+        except json.JSONDecodeError:
+            raise ValueError("Invalid JSON in collection-config")
 
     async def _run():
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
@@ -193,6 +363,9 @@ def main(
                 collection_name,
                 provider,
                 qdrant_local_path,
+                multi_collection_mode,
+                collection_prefix,
+                parsed_collection_config,
             )
 
             # Create and run the server

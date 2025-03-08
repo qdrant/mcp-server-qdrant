@@ -1,7 +1,8 @@
 # mcp-server-qdrant: A Qdrant MCP server
+
 [![smithery badge](https://smithery.ai/badge/mcp-server-qdrant)](https://smithery.ai/protocol/mcp-server-qdrant)
 
-> The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables seamless integration between LLM applications and external data sources and tools. Whether you’re building an AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to connect LLMs with the context they need.
+> The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables seamless integration between LLM applications and external data sources and tools. Whether you're building an AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to connect LLMs with the context they need.
 
 This repository is an example of how to create a MCP server for [Qdrant](https://qdrant.tech/), a vector search engine.
 
@@ -20,18 +21,43 @@ It acts as a semantic memory layer on top of the Qdrant database.
    - Store a memory in the Qdrant database
    - Input:
      - `information` (string): Memory to store
+     - `collection_name` (string, optional): Collection to store the memory in (only in multi-collection mode)
    - Returns: Confirmation message
 2. `qdrant-find-memories`
    - Retrieve a memory from the Qdrant database
    - Input:
      - `query` (string): Query to retrieve a memory
+     - `collection_name` (string, optional): Collection to search in (only in multi-collection mode)
    - Returns: Memories stored in the Qdrant database as separate messages
+
+### Additional Tools in Multi-Collection Mode
+
+When multi-collection mode is enabled, the following additional tools are available:
+
+3. `qdrant-list-collections`
+   - List all available collections
+   - Input: None
+   - Returns: List of available collections
+4. `qdrant-find-memories-across-collections`
+   - Search for memories across all available collections
+   - Input:
+     - `query` (string): Query to search for across all collections
+   - Returns: Memories grouped by collection
+
+### Collection Name Format
+
+When using multi-collection mode, collection names must follow these rules:
+
+- Must contain only alphanumeric characters, underscores, and hyphens (a-z, A-Z, 0-9, \_, -)
+- Must be between 1 and 64 characters long
+- Examples of valid collection names: `work`, `personal_notes`, `project-2023`
+- Examples of invalid collection names: `work space` (contains space), `project/2023` (contains slash)
 
 ## Installation
 
 ### Using uv (recommended)
 
-When using [`uv`](https://docs.astral.sh/uv/) no specific installation is needed to directly run *mcp-server-qdrant*.
+When using [`uv`](https://docs.astral.sh/uv/) no specific installation is needed to directly run _mcp-server-qdrant_.
 
 ```shell
 uv run mcp-server-qdrant \
@@ -101,6 +127,56 @@ To use a local mode of Qdrant, you can specify the path to the database using th
 
 It will run Qdrant local mode inside the same process as the MCP server. Although it is not recommended for production.
 
+### Multi-Collection Mode for AI Agents
+
+The server supports a multi-collection mode designed for AI agents, allowing them to organize memories in different collections based on context. To enable this mode:
+
+```json
+{
+  "qdrant": {
+    "command": "uvx",
+    "args": [
+      "mcp-server-qdrant",
+      "--qdrant-url",
+      "http://localhost:6333",
+      "--collection-name",
+      "global_memories",
+      "--multi-collection-mode",
+      "--collection-prefix",
+      "agent_"
+    ]
+  }
+}
+```
+
+In multi-collection mode:
+
+- The `collection-name` parameter specifies the global collection that's always available
+- All collections are automatically prefixed with the value of `collection-prefix` (default: "agent\_")
+- AI agents can specify which collection to store memories in or retrieve from
+- Collections are automatically created when needed
+- The AI can list available collections and search across all collections
+
+You can also provide a JSON configuration for new collections using the `--collection-config` parameter:
+
+```json
+{
+  "qdrant": {
+    "command": "uvx",
+    "args": [
+      "mcp-server-qdrant",
+      "--qdrant-url",
+      "http://localhost:6333",
+      "--collection-name",
+      "global_memories",
+      "--multi-collection-mode",
+      "--collection-config",
+      "{\"distance\": \"cosine\", \"optimizers\": {\"indexing_threshold\": 10000}}"
+    ]
+  }
+}
+```
+
 ## Environment Variables
 
 The configuration of the server can be also done using environment variables:
@@ -111,6 +187,9 @@ The configuration of the server can be also done using environment variables:
 - `EMBEDDING_MODEL`: Name of the embedding model to use
 - `EMBEDDING_PROVIDER`: Embedding provider to use (currently only "fastembed" is supported)
 - `QDRANT_LOCAL_PATH`: Path to the local Qdrant database
+- `MULTI_COLLECTION_MODE`: Enable multi-collection mode for AI agents (set to any value to enable)
+- `COLLECTION_PREFIX`: Prefix for all collections in multi-collection mode
+- `COLLECTION_CONFIG`: JSON configuration for new collections created in multi-collection mode
 
 You cannot provide `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
 
