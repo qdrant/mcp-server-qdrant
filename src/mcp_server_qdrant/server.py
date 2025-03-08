@@ -61,6 +61,13 @@ def serve(
                             "type": "string",
                             "description": collection_name_description,
                         },
+                        "replace_memory_ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "Optional list of memory IDs to replace with this new memory.",
+                        },
                     },
                     "required": ["information"],
                 },
@@ -86,6 +93,28 @@ def serve(
                         },
                     },
                     "required": ["query"],
+                },
+            ),
+            types.Tool(
+                name="qdrant-delete-memories",
+                description=(
+                    "Delete specific memories from Qdrant. Use this tool when you need to: \n"
+                    " - Remove outdated or incorrect information \n"
+                    " - Update information by deleting old versions \n"
+                    " - Clean up unnecessary memories"
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "memory_ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "List of memory IDs to delete. These IDs are returned by the find-memories tools.",
+                        },
+                    },
+                    "required": ["memory_ids"],
                 },
             ),
         ]
@@ -131,7 +160,7 @@ def serve(
     async def handle_tool_call(
         name: str, arguments: dict | None
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-        valid_tools = ["qdrant-store-memory", "qdrant-find-memories"]
+        valid_tools = ["qdrant-store-memory", "qdrant-find-memories", "qdrant-delete-memories"]
         
         # Add multi-collection tools if enabled
         if qdrant_connector._multi_collection_mode:
@@ -146,13 +175,19 @@ def serve(
             
             information = arguments["information"]
             collection_name = arguments.get("collection_name")
+            replace_memory_ids = arguments.get("replace_memory_ids", [])
             
             try:
-                await qdrant_connector.store_memory(information, collection_name)
+                memory_id = await qdrant_connector.store_memory(
+                    information, 
+                    collection_name,
+                    replace_memory_ids
+                )
                 
                 response = f"Remembered: {information}"
                 if collection_name:
                     response += f" (in collection: {collection_name})"
+                response += f"\nMemory ID: {memory_id}"
                     
                 return [types.TextContent(type="text", text=response)]
             except ValueError as e:
@@ -183,11 +218,33 @@ def serve(
                     )
                 else:
                     for memory in memories:
+                        readonly_tag = " (readonly)" if memory.get("readonly", False) else ""
                         content.append(
-                            types.TextContent(type="text", text=f"<memory>{memory}</memory>")
+                            types.TextContent(
+                                type="text", 
+                                text=f"<memory id=\"{memory['id']}\">{memory['content']}</memory>{readonly_tag}"
+                            )
                         )
                     
                 return content
+            except ValueError as e:
+                # Return a more user-friendly error message
+                return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+            
+        if name == "qdrant-delete-memories":
+            if not arguments or "memory_ids" not in arguments:
+                raise ValueError("Missing required argument 'memory_ids'")
+            
+            memory_ids = arguments["memory_ids"]
+            
+            try:
+                deleted_count = await qdrant_connector.delete_memories(memory_ids)
+                
+                response = f"Successfully deleted {deleted_count} memories."
+                if deleted_count < len(memory_ids):
+                    response += f" ({len(memory_ids) - deleted_count} memories were not found or could not be deleted.)"
+                    
+                return [types.TextContent(type="text", text=response)]
             except ValueError as e:
                 # Return a more user-friendly error message
                 return [types.TextContent(type="text", text=f"Error: {str(e)}")]
@@ -239,8 +296,12 @@ def serve(
                     )
                     
                     for memory in memories:
+                        readonly_tag = " (readonly)" if memory.get("readonly", False) else ""
                         content.append(
-                            types.TextContent(type="text", text=f"<memory>{memory}</memory>")
+                            types.TextContent(
+                                type="text", 
+                                text=f"<memory id=\"{memory['id']}\">{memory['content']}</memory>{readonly_tag}"
+                            )
                         )
                         
             return content
@@ -309,6 +370,14 @@ def serve(
     help="Prefix for all collections in multi-collection mode",
     default="agent_",
 )
+@click.option(
+    "--protect-collections",
+    envvar="PROTECT_COLLECTIONS",
+    required=False,
+    help="Comma-separated list of collection names that are protected from modification or deletion. In multi-collection mode, if specified without values, all collections will be protected.",
+    is_flag=False,
+    flag_value="",
+)
 def main(
     qdrant_url: Optional[str],
     qdrant_api_key: str,
@@ -319,6 +388,7 @@ def main(
     qdrant_local_path: Optional[str],
     multi_collection_mode: bool,
     collection_prefix: Optional[str],
+    protect_collections: Optional[str],
 ):
     # XOR of url and local path, since we accept only one of them
     if not (bool(qdrant_url) ^ bool(qdrant_local_path)):
@@ -334,6 +404,24 @@ def main(
             err=True,
         )
         
+    # Parse protected collections
+    protected_collections = set()
+    if protect_collections is not None:
+        # If protect_collections is specified but empty in multi-collection mode,
+        # we'll protect all collections (determined dynamically)
+        if protect_collections == "" and multi_collection_mode:
+            # We'll set a flag to indicate that all collections should be protected
+            # The actual collection names will be determined at runtime
+            protected_collections = {"*"}  # Special marker for "all collections"
+        else:
+            # Otherwise, protect the specified collections
+            protected_collections = set(name.strip() for name in protect_collections.split(",") if name.strip())
+            
+        # If not in multi-collection mode and protect_collections is specified,
+        # assume the default collection should be protected
+        if not multi_collection_mode and protected_collections:
+            protected_collections = {collection_name}
+            
     async def _run():
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
             # Create the embedding provider
@@ -344,13 +432,14 @@ def main(
 
             # Create the Qdrant connector
             qdrant_connector = QdrantConnector(
-                qdrant_url,
-                qdrant_api_key,
-                collection_name,
-                provider,
-                qdrant_local_path,
-                multi_collection_mode,
-                collection_prefix,
+                qdrant_url=qdrant_url,
+                qdrant_api_key=qdrant_api_key,
+                collection_name=collection_name,
+                embedding_provider=provider,
+                qdrant_local_path=qdrant_local_path,
+                multi_collection_mode=multi_collection_mode,
+                collection_prefix=collection_prefix,
+                protected_collections=protected_collections,
             )
 
             # Create and run the server

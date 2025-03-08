@@ -1,6 +1,6 @@
 import uuid
 import re
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union, Tuple, Set
 
 from qdrant_client import AsyncQdrantClient, models
 
@@ -17,10 +17,13 @@ class QdrantConnector:
     :param qdrant_local_path: The path to the storage directory for the Qdrant client, if local mode is used.
     :param multi_collection_mode: Whether to enable multi-collection mode for AI agents.
     :param collection_prefix: Prefix for all collections in multi-collection mode.
+    :param protected_collections: Set of collection names that are protected from modification or deletion.
     """
 
     # Regex pattern for valid collection names
     VALID_COLLECTION_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{1,64}$')
+    # Separator for memory IDs (collection:id)
+    MEMORY_ID_SEPARATOR = ":"
 
     def __init__(
         self,
@@ -31,6 +34,7 @@ class QdrantConnector:
         qdrant_local_path: Optional[str] = None,
         multi_collection_mode: bool = False,
         collection_prefix: Optional[str] = None,
+        protected_collections: Optional[Set[str]] = None,
     ):
         self._qdrant_url = qdrant_url.rstrip("/") if qdrant_url else None
         self._qdrant_api_key = qdrant_api_key
@@ -39,6 +43,7 @@ class QdrantConnector:
         self._qdrant_local_path = qdrant_local_path
         self._multi_collection_mode = multi_collection_mode
         self._collection_prefix = collection_prefix or ""
+        self._protected_collections = protected_collections or set()
         
         # Initialize the Qdrant client
         if qdrant_url:
@@ -69,6 +74,43 @@ class QdrantConnector:
             )
         
         return f"{self._collection_prefix}{collection_name}"
+
+    def _get_collection_from_memory_id(self, memory_id: str) -> Tuple[str, str]:
+        """
+        Extract the collection name and point ID from a memory ID.
+        :param memory_id: The memory ID in the format "collection:id"
+        :return: A tuple of (collection_name, point_id)
+        """
+        if self.MEMORY_ID_SEPARATOR not in memory_id:
+            # If no separator, assume it's in the default collection
+            return self._collection_name, memory_id
+            
+        collection, point_id = memory_id.split(self.MEMORY_ID_SEPARATOR, 1)
+        return collection, point_id
+
+    def _create_memory_id(self, collection_name: str, point_id: str) -> str:
+        """
+        Create a memory ID from a collection name and point ID.
+        :param collection_name: The collection name
+        :param point_id: The point ID
+        :return: A memory ID in the format "collection:id"
+        """
+        # For the default collection, we can just return the point ID
+        if collection_name == self._collection_name and not self._multi_collection_mode:
+            return point_id
+        return f"{collection_name}{self.MEMORY_ID_SEPARATOR}{point_id}"
+
+    def _is_collection_protected(self, collection_name: str) -> bool:
+        """
+        Check if a collection is protected from modification or deletion.
+        :param collection_name: The collection name to check
+        :return: True if the collection is protected, False otherwise
+        """
+        # If "*" is in protected_collections, all collections are protected
+        if "*" in self._protected_collections:
+            return True
+            
+        return collection_name in self._protected_collections
 
     async def _ensure_collection_exists(self, collection_name: Optional[str] = None):
         """
@@ -120,18 +162,39 @@ class QdrantConnector:
         
         return collection_names
 
-    async def store_memory(self, information: str, collection_name: Optional[str] = None):
+    async def store_memory(
+        self, 
+        information: str, 
+        collection_name: Optional[str] = None,
+        replace_memory_ids: Optional[List[str]] = None
+    ) -> str:
         """
         Store a memory in the Qdrant collection.
         :param information: The information to store.
         :param collection_name: The name of the collection to store the memory in. 
                                If None, use the default collection.
+        :param replace_memory_ids: Optional list of memory IDs to delete before storing the new memory.
+        :return: The ID of the stored memory.
+        :raises ValueError: If the collection is protected from modification.
         """
+        collection_for_id = collection_name if collection_name else self._collection_name
+        
+        # Check if the collection is protected
+        if self._is_collection_protected(collection_for_id):
+            raise ValueError(f"Collection '{collection_for_id}' is protected and cannot be modified.")
+            
+        # Delete memories to be replaced if specified
+        if replace_memory_ids:
+            await self.delete_memories(replace_memory_ids)
+            
         await self._ensure_collection_exists(collection_name)
         prefixed_name = self._get_prefixed_collection_name(collection_name)
 
         # Embed the document
         embeddings = await self._embedding_provider.embed_documents([information])
+
+        # Generate a unique ID for the point
+        point_id = uuid.uuid4().hex
 
         # Add to Qdrant
         vector_name = self._embedding_provider.get_vector_name()
@@ -139,23 +202,31 @@ class QdrantConnector:
             collection_name=prefixed_name,
             points=[
                 models.PointStruct(
-                    id=uuid.uuid4().hex,
+                    id=point_id,
                     vector={vector_name: embeddings[0]},
                     payload={"document": information},
                 )
             ],
         )
+        
+        # Return the memory ID
+        return self._create_memory_id(collection_for_id, point_id)
 
-    async def find_memories(self, query: str, collection_name: Optional[str] = None) -> list[str]:
+    async def find_memories(
+        self, 
+        query: str, 
+        collection_name: Optional[str] = None
+    ) -> List[Dict[str, str]]:
         """
         Find memories in the Qdrant collection. If there are no memories found, an empty list is returned.
         :param query: The query to use for the search.
         :param collection_name: The name of the collection to search in. 
                                If None, use the default collection.
-        :return: A list of memories found.
+        :return: A list of dictionaries containing the memory content and ID.
         """
         prefixed_name = self._get_prefixed_collection_name(collection_name)
         collection_exists = await self._client.collection_exists(prefixed_name)
+        collection_for_id = collection_name if collection_name else self._collection_name
         
         if not collection_exists:
             return []
@@ -171,9 +242,17 @@ class QdrantConnector:
             limit=10,
         )
 
-        return [result.payload["document"] for result in search_results]
+        # Return memories with their IDs
+        return [
+            {
+                "content": result.payload["document"],
+                "id": self._create_memory_id(collection_for_id, result.id),
+                "readonly": self._is_collection_protected(collection_for_id)
+            } 
+            for result in search_results
+        ]
 
-    async def find_memories_across_collections(self, query: str) -> Dict[str, List[str]]:
+    async def find_memories_across_collections(self, query: str) -> Dict[str, List[Dict[str, str]]]:
         """
         Find memories across all collections available to the AI agent.
         :param query: The query to use for the search.
@@ -201,3 +280,50 @@ class QdrantConnector:
                 results[collection] = memories
                 
         return results
+        
+    async def delete_memories(self, memory_ids: List[str]) -> int:
+        """
+        Delete memories by their IDs.
+        :param memory_ids: List of memory IDs to delete.
+        :return: Number of memories successfully deleted.
+        :raises ValueError: If any of the collections are protected from deletion.
+        """
+        # Group memory IDs by collection for batch deletion
+        collection_points: Dict[str, List[str]] = {}
+        
+        for memory_id in memory_ids:
+            collection, point_id = self._get_collection_from_memory_id(memory_id)
+            
+            # Check if the collection is protected
+            if self._is_collection_protected(collection):
+                raise ValueError(f"Collection '{collection}' is protected and cannot be modified.")
+                
+            prefixed_name = self._get_prefixed_collection_name(collection)
+            
+            if prefixed_name not in collection_points:
+                collection_points[prefixed_name] = []
+                
+            collection_points[prefixed_name].append(point_id)
+        
+        # Delete points from each collection
+        deleted_count = 0
+        for collection_name, point_ids in collection_points.items():
+            # Check if collection exists
+            collection_exists = await self._client.collection_exists(collection_name)
+            if not collection_exists:
+                continue
+                
+            # Delete points
+            result = await self._client.delete(
+                collection_name=collection_name,
+                points_selector=models.PointIdsList(
+                    points=point_ids
+                )
+            )
+            
+            # The UpdateStatus object doesn't have a deleted_count attribute
+            # Instead, we'll assume all points were deleted if the operation was successful
+            # In a production environment, you might want to verify this by checking if the points still exist
+            deleted_count += len(point_ids)
+            
+        return deleted_count
