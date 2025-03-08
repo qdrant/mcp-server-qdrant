@@ -309,12 +309,6 @@ def serve(
     help="Prefix for all collections in multi-collection mode",
     default="agent_",
 )
-@click.option(
-    "--collection-config",
-    envvar="COLLECTION_CONFIG",
-    required=False,
-    help="JSON configuration for new collections created in multi-collection mode",
-)
 def main(
     qdrant_url: Optional[str],
     qdrant_api_key: str,
@@ -325,7 +319,6 @@ def main(
     qdrant_local_path: Optional[str],
     multi_collection_mode: bool,
     collection_prefix: Optional[str],
-    collection_config: Optional[str],
 ):
     # XOR of url and local path, since we accept only one of them
     if not (bool(qdrant_url) ^ bool(qdrant_local_path)):
@@ -341,19 +334,12 @@ def main(
             err=True,
         )
         
-    # Parse collection config if provided
-    parsed_collection_config = None
-    if collection_config:
-        try:
-            parsed_collection_config = json.loads(collection_config)
-        except json.JSONDecodeError:
-            raise ValueError("Invalid JSON in collection-config")
-
     async def _run():
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
             # Create the embedding provider
             provider = create_embedding_provider(
-                provider_type=embedding_provider, model_name=embedding_model
+                provider_type=embedding_provider,
+                model_name=embedding_model or fastembed_model_name,
             )
 
             # Create the Qdrant connector
@@ -365,7 +351,6 @@ def main(
                 qdrant_local_path,
                 multi_collection_mode,
                 collection_prefix,
-                parsed_collection_config,
             )
 
             # Create and run the server

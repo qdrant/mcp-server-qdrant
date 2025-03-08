@@ -189,7 +189,6 @@ The configuration of the server can be also done using environment variables:
 - `QDRANT_LOCAL_PATH`: Path to the local Qdrant database
 - `MULTI_COLLECTION_MODE`: Enable multi-collection mode for AI agents (set to any value to enable)
 - `COLLECTION_PREFIX`: Prefix for all collections in multi-collection mode
-- `COLLECTION_CONFIG`: JSON configuration for new collections created in multi-collection mode
 
 You cannot provide `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
 
