@@ -253,12 +253,12 @@ async def test_protect_all_collections():
         cat_memories = await connector.find_memories("cats", "cats")
         print(f"Cat memories: {json.dumps(cat_memories, indent=2)}")
         assert len(cat_memories) > 0, "No cat memories found"
-        assert cat_memories[0].get("readonly", False), "Memory should be marked as readonly"
+        assert cat_memories[0].get("readonly", False), "Memory should be marked as readonly in the connector"
         
         dog_memories = await connector.find_memories("dogs", "dogs")
         print(f"Dog memories: {json.dumps(dog_memories, indent=2)}")
         assert len(dog_memories) > 0, "No dog memories found"
-        assert dog_memories[0].get("readonly", False), "Memory should be marked as readonly"
+        assert dog_memories[0].get("readonly", False), "Memory should be marked as readonly in the connector"
         
         # Test deleting from any collection (should fail)
         try:
@@ -280,7 +280,7 @@ async def test_protect_all_collections():
         # Verify readonly status in results for all collections
         for collection, memories in all_memories.items():
             for memory in memories:
-                assert memory.get("readonly", False), f"{collection} memory should be marked as readonly"
+                assert memory.get("readonly", False), f"{collection} memory should be marked as readonly in the connector"
         
         print("All protect all collections tests passed!")
 
