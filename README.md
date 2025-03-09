@@ -181,6 +181,7 @@ The configuration of the server can be also done using environment variables:
 - `QDRANT_URL`: URL of the Qdrant server, e.g. `http://localhost:6333`
 - `QDRANT_API_KEY`: API key for the Qdrant server
 - `COLLECTION_NAME`: Name of the collection to use, or if in mutli-collection mode, the default collection name.
+  - Note: The `COLLECTION_PREFIX` will not apply to the `COLLECTION_NAME`.
 - `EMBEDDING_MODEL`: Name of the embedding model to use
 - `EMBEDDING_PROVIDER`: Embedding provider to use (currently only "fastembed" is supported)
 - `QDRANT_LOCAL_PATH`: Path to the local Qdrant database
