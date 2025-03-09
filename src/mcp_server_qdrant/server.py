@@ -293,6 +293,12 @@ def serve(
                     if collection == qdrant_connector._collection_name:
                         collection_extra = " (default)"
 
+                    if qdrant_connector._is_collection_deletion_protected(collection):
+                        collection_extra += " (insert-only)"
+
+                    if qdrant_connector._is_collection_readonly(collection):
+                        collection_extra += " (readonly)"
+
                     content.append(
                         types.TextContent(type="text", text=f"- {collection}{collection_extra}")
                     )
@@ -322,8 +328,19 @@ def serve(
                 all_collections_deletion_protected = "*" in qdrant_connector._protected_collections
                 
                 for collection, memories in results.items():
+                    collection_extra = ""
+
+                    if collection == qdrant_connector._collection_name:
+                        collection_extra = " (default)"
+
+                    if qdrant_connector._is_collection_deletion_protected(collection):
+                        collection_extra += " (insert-only)"
+
+                    if qdrant_connector._is_collection_readonly(collection):
+                        collection_extra += " (readonly)"
+
                     content.append(
-                        types.TextContent(type="text", text=f"\nCollection: {collection}")
+                        types.TextContent(type="text", text=f"\nCollection: {collection}{collection_extra}")
                     )
                     
                     for memory in memories:

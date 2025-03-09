@@ -108,19 +108,7 @@ class QdrantConnector:
         if collection_name == self._collection_name and not self._multi_collection_mode:
             return point_id
         return f"{collection_name}{self.MEMORY_ID_SEPARATOR}{point_id}"
-
-    def _is_collection_protected(self, collection_name: str) -> bool:
-        """
-        Check if a collection is protected from modification or deletion.
-        :param collection_name: The collection name to check
-        :return: True if the collection is protected, False otherwise
-        """
-        # If "*" is in protected_collections, all collections are protected
-        if "*" in self._protected_collections:
-            return True
-            
-        return collection_name in self._protected_collections
-        
+       
     def _is_collection_deletion_protected(self, collection_name: str) -> bool:
         """
         Check if a collection is protected from deletion operations.
@@ -128,7 +116,11 @@ class QdrantConnector:
         :param collection_name: The collection name to check
         :return: True if the collection is protected from deletion, False otherwise
         """
-        return self._is_collection_protected(collection_name)
+        # If "*" is in protected_collections, all collections are protected
+        if "*" in self._protected_collections:
+            return True
+            
+        return collection_name in self._protected_collections
         
     def _is_collection_readonly(self, collection_name: str) -> bool:
         """
