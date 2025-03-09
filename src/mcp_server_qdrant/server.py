@@ -312,11 +312,10 @@ def serve(
                     if collection == qdrant_connector._collection_name:
                         collection_extra = " (default)"
 
-                    if qdrant_connector._is_collection_deletion_protected(collection):
-                        collection_extra += " (insert-only)"
-
                     if qdrant_connector._is_collection_readonly(collection):
                         collection_extra += " (readonly)"
+                    elif qdrant_connector._is_collection_deletion_protected(collection):
+                        collection_extra += " (insert-only)"
 
                     content.append(
                         types.TextContent(type="text", text=f"- {collection}{collection_extra}")
@@ -351,12 +350,11 @@ def serve(
 
                     if collection == qdrant_connector._collection_name:
                         collection_extra = " (default)"
-
-                    if qdrant_connector._is_collection_deletion_protected(collection):
-                        collection_extra += " (insert-only)"
-
+                
                     if qdrant_connector._is_collection_readonly(collection):
                         collection_extra += " (readonly)"
+                    elif qdrant_connector._is_collection_deletion_protected(collection):
+                        collection_extra += " (insert-only)"
 
                     content.append(
                         types.TextContent(type="text", text=f"\nCollection: {collection}{collection_extra}")
@@ -486,7 +484,7 @@ def main(
     if protect_collections is not None:
         # If protect_collections is specified but empty in multi-collection mode,
         # we'll protect all collections (determined dynamically)
-        if protect_collections == "" and multi_collection_mode:
+        if protect_collections == "":
             # We'll set a flag to indicate that all collections should be protected
             # The actual collection names will be determined at runtime
             protected_collections = {"*"}  # Special marker for "all collections"
@@ -496,15 +494,15 @@ def main(
             
         # If not in multi-collection mode and protect_collections is specified,
         # assume the default collection should be protected
-        if not multi_collection_mode and protected_collections:
-            protected_collections = {collection_name}
+        if not multi_collection_mode:
+            protected_collections = {"*"}
             
     # Parse readonly collections
     readonly_collections_set = set()
     if readonly_collections is not None:
         # If readonly_collections is specified but empty in multi-collection mode,
         # we'll make all collections read-only (determined dynamically)
-        if readonly_collections == "" and multi_collection_mode:
+        if readonly_collections == "":
             # We'll set a flag to indicate that all collections should be read-only
             # The actual collection names will be determined at runtime
             readonly_collections_set = {"*"}  # Special marker for "all collections"
@@ -514,8 +512,8 @@ def main(
             
         # If not in multi-collection mode and readonly_collections is specified,
         # assume the default collection should be read-only
-        if not multi_collection_mode and readonly_collections_set:
-            readonly_collections_set = {collection_name}
+        if not multi_collection_mode:
+            readonly_collections_set = {"*"}
             
     async def _run():
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
