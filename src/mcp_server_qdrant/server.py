@@ -368,7 +368,7 @@ def serve(
     "--collection-name",
     envvar="COLLECTION_NAME",
     required=True,
-    help="Collection name (used as the default/global collection in multi-collection mode)",
+    help="Collection name (used as the default collection in multi-collection mode)",
 )
 @click.option(
     "--fastembed-model-name",

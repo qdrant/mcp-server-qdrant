@@ -12,7 +12,7 @@ class QdrantConnector:
     Encapsulates the connection to a Qdrant server and all the methods to interact with it.
     :param qdrant_url: The URL of the Qdrant server.
     :param qdrant_api_key: The API key to use for the Qdrant server.
-    :param collection_name: The name of the collection to use. If multi_collection_mode is True, this is used as the global collection.
+    :param collection_name: The name of the collection to use. If multi_collection_mode is True, this is used as the default collection.
     :param embedding_provider: The embedding provider to use.
     :param qdrant_local_path: The path to the storage directory for the Qdrant client, if local mode is used.
     :param multi_collection_mode: Whether to enable multi-collection mode for AI agents.
@@ -157,6 +157,10 @@ class QdrantConnector:
         List all collections available to the AI agent.
         :return: A list of collection names (without the prefix).
         """
+        # if for some reason we're not in multi-collection mode, return the default collection
+        if not self._multi_collection_mode:
+            return [self._collection_name]
+
         collections = await self._client.get_collections()
         collection_names = [c.name for c in collections.collections]
         
@@ -179,10 +183,6 @@ class QdrantConnector:
             ]
                 
             return result
-        
-        # if for some reason we're not in multi-collection mode, return the default collection
-        if not self._multi_collection_mode:
-            return [self._collection_name]
 
         # If in multi-collection mode, and no prefix is set, return all collections
         return collection_names
@@ -283,22 +283,18 @@ class QdrantConnector:
         :param query: The query to use for the search.
         :return: A dictionary mapping collection names to lists of memories found.
         """
-        if not self._multi_collection_mode:
-            memories = await self.find_memories(query)
-            return {self._collection_name: memories}
-        
         collections = await self.list_collections()
         results = {}
         
-        # Always include the global collection
-        global_memories = await self.find_memories(query)
-        if global_memories:
-            results[self._collection_name] = global_memories
+        # Always include the default collection
+        default_memories = await self.find_memories(query)
+        if default_memories:
+            results[self._collection_name] = default_memories
         
         # Search in each collection
         for collection in collections:
             if collection == self._collection_name:
-                continue  # Skip the global collection as we've already searched it
+                continue  # Skip the default collection as we've already searched it
                 
             memories = await self.find_memories(query, collection)
             if memories:
@@ -323,7 +319,7 @@ class QdrantConnector:
             if self._is_collection_protected(collection):
                 raise ValueError(f"Collection '{collection}' is protected and cannot be modified.")
                 
-            # Get the prefixed collection name - this handles the default/global collection correctly
+            # Get the prefixed collection name - this handles the default collection correctly
             prefixed_name = self._get_prefixed_collection_name(collection)
             
             if prefixed_name not in collection_points:

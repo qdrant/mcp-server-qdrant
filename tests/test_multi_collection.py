@@ -32,7 +32,7 @@ async def test_multi_collection():
         connector = QdrantConnector(
             qdrant_url=None,
             qdrant_api_key=None,
-            collection_name="global",
+            collection_name="default",
             embedding_provider=provider,
             qdrant_local_path=temp_dir,
             multi_collection_mode=True,
@@ -40,8 +40,8 @@ async def test_multi_collection():
         )
         
         # Test storing memories in different collections
-        global_memory_id = await connector.store_memory("This is a global memory", None)
-        print(f"Stored global memory with ID: {global_memory_id}")
+        default_memory_id = await connector.store_memory("This is a default memory", None)
+        print(f"Stored default memory with ID: {default_memory_id}")
         
         cat_memory_id1 = await connector.store_memory("This is a memory about cats", "cats")
         print(f"Stored cat memory 1 with ID: {cat_memory_id1}")
@@ -131,7 +131,7 @@ async def test_protected_collections():
         connector = QdrantConnector(
             qdrant_url=None,
             qdrant_api_key=None,
-            collection_name="global",
+            collection_name="default",
             embedding_provider=provider,
             qdrant_local_path=temp_dir,
             multi_collection_mode=True,
@@ -140,8 +140,8 @@ async def test_protected_collections():
         )
         
         # Test storing memories in different collections
-        global_memory_id = await connector.store_memory("This is a global memory", None)
-        print(f"Stored global memory with ID: {global_memory_id}")
+        default_memory_id = await connector.store_memory("This is a default memory", None)
+        print(f"Stored default memory with ID: {default_memory_id}")
         
         # Store a memory in the unprotected "dogs" collection
         dog_memory_id = await connector.store_memory("This is a memory about dogs", "dogs")
@@ -206,7 +206,7 @@ async def test_protect_all_collections():
         connector = QdrantConnector(
             qdrant_url=None,
             qdrant_api_key=None,
-            collection_name="global",
+            collection_name="default",
             embedding_provider=provider,
             qdrant_local_path=temp_dir,
             multi_collection_mode=True,
@@ -218,8 +218,8 @@ async def test_protect_all_collections():
         connector._protected_collections.clear()
         
         # Store memories in different collections
-        global_memory_id = await connector.store_memory("This is a global memory", None)
-        print(f"Stored global memory with ID: {global_memory_id}")
+        default_memory_id = await connector.store_memory("This is a default memory", None)
+        print(f"Stored default memory with ID: {default_memory_id}")
         
         cat_memory_id = await connector.store_memory("This is a memory about cats", "cats")
         print(f"Stored cat memory with ID: {cat_memory_id}")
@@ -244,7 +244,7 @@ async def test_protect_all_collections():
             print(f"Expected error for protected collection: {e}")
             
         try:
-            await connector.store_memory("This should fail", "global")
+            await connector.store_memory("This should fail", "default")
             assert False, "Should have failed to store in protected collection"
         except ValueError as e:
             print(f"Expected error for protected collection: {e}")
@@ -285,9 +285,9 @@ async def test_protect_all_collections():
         print("All protect all collections tests passed!")
 
 
-async def test_delete_global_memories():
-    """Test deleting memories from the global collection in multi-collection mode."""
-    print("\nTesting deletion of memories from global collection in multi-collection mode...")
+async def test_delete_default_memories():
+    """Test deleting memories from the default collection in multi-collection mode."""
+    print("\nTesting deletion of memories from default collection in multi-collection mode...")
     
     # Create a temporary directory for Qdrant local storage
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -301,67 +301,67 @@ async def test_delete_global_memories():
         connector = QdrantConnector(
             qdrant_url=None,
             qdrant_api_key=None,
-            collection_name="global",
+            collection_name="default",
             embedding_provider=provider,
             qdrant_local_path=temp_dir,
             multi_collection_mode=True,
             collection_prefix="test_",
         )
         
-        # Store memories in the global collection
-        global_memory_id1 = await connector.store_memory("This is the first global memory")
-        print(f"Stored global memory 1 with ID: {global_memory_id1}")
+        # Store memories in the default collection
+        default_memory_id1 = await connector.store_memory("This is the first default memory")
+        print(f"Stored default memory 1 with ID: {default_memory_id1}")
         
-        global_memory_id2 = await connector.store_memory("This is the second global memory")
-        print(f"Stored global memory 2 with ID: {global_memory_id2}")
+        default_memory_id2 = await connector.store_memory("This is the second default memory")
+        print(f"Stored default memory 2 with ID: {default_memory_id2}")
         
         # Store a memory in a different collection for comparison
         other_memory_id = await connector.store_memory("This is a memory in another collection", "other")
         print(f"Stored memory in 'other' collection with ID: {other_memory_id}")
         
         # Verify memories exist before deletion
-        global_memories_before = await connector.find_memories("global memory")
-        print(f"Global memories before deletion: {json.dumps(global_memories_before, indent=2)}")
-        assert len(global_memories_before) == 2, f"Expected 2 global memories, found {len(global_memories_before)}"
+        default_memories_before = await connector.find_memories("default memory")
+        print(f"Default memories before deletion: {json.dumps(default_memories_before, indent=2)}")
+        assert len(default_memories_before) == 2, f"Expected 2 default memories, found {len(default_memories_before)}"
         
         other_memories_before = await connector.find_memories("other", "other")
         print(f"Other memories before deletion: {json.dumps(other_memories_before, indent=2)}")
         assert len(other_memories_before) == 1, f"Expected 1 memory in 'other' collection, found {len(other_memories_before)}"
         
-        # Delete one memory from the global collection
-        deleted_count = await connector.delete_memories([global_memory_id1])
-        print(f"Deleted {deleted_count} memory from global collection")
+        # Delete one memory from the default collection
+        deleted_count = await connector.delete_memories([default_memory_id1])
+        print(f"Deleted {deleted_count} memory from default collection")
         assert deleted_count == 1, f"Expected to delete 1 memory, but deleted {deleted_count}"
         
         # Verify the memory was deleted
-        global_memories_after = await connector.find_memories("global memory")
-        print(f"Global memories after deletion: {json.dumps(global_memories_after, indent=2)}")
-        assert len(global_memories_after) == 1, f"Expected 1 global memory after deletion, found {len(global_memories_after)}"
+        default_memories_after = await connector.find_memories("default memory")
+        print(f"Default memories after deletion: {json.dumps(default_memories_after, indent=2)}")
+        assert len(default_memories_after) == 1, f"Expected 1 default memory after deletion, found {len(default_memories_after)}"
         
         # Verify the other collection is unaffected
         other_memories_after = await connector.find_memories("other", "other")
         print(f"Other memories after deletion: {json.dumps(other_memories_after, indent=2)}")
         assert len(other_memories_after) == 1, f"Expected 1 memory in 'other' collection, found {len(other_memories_after)}"
         
-        # Delete the remaining global memory and the memory in the other collection
-        deleted_count = await connector.delete_memories([global_memory_id2, other_memory_id])
+        # Delete the remaining default memory and the memory in the other collection
+        deleted_count = await connector.delete_memories([default_memory_id2, other_memory_id])
         print(f"Deleted {deleted_count} memories")
         assert deleted_count == 2, f"Expected to delete 2 memories, but deleted {deleted_count}"
         
         # Verify all memories were deleted
-        global_memories_final = await connector.find_memories("global memory")
-        print(f"Global memories after final deletion: {json.dumps(global_memories_final, indent=2)}")
-        assert len(global_memories_final) == 0, f"Expected 0 global memories, found {len(global_memories_final)}"
+        default_memories_final = await connector.find_memories("default memory")
+        print(f"Default memories after final deletion: {json.dumps(default_memories_final, indent=2)}")
+        assert len(default_memories_final) == 0, f"Expected 0 default memories, found {len(default_memories_final)}"
         
         other_memories_final = await connector.find_memories("other", "other")
         print(f"Other memories after final deletion: {json.dumps(other_memories_final, indent=2)}")
         assert len(other_memories_final) == 0, f"Expected 0 memories in 'other' collection, found {len(other_memories_final)}"
         
-        print("All global memory deletion tests passed!")
+        print("All default memory deletion tests passed!")
 
 
 if __name__ == "__main__":
     asyncio.run(test_multi_collection())
     asyncio.run(test_protected_collections())
     asyncio.run(test_protect_all_collections())
-    asyncio.run(test_delete_global_memories()) 
+    asyncio.run(test_delete_default_memories()) 

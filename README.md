@@ -141,7 +141,7 @@ The server supports a multi-collection mode designed for AI agents, allowing the
       "--qdrant-url",
       "http://localhost:6333",
       "--collection-name",
-      "global_memories",
+      "default_memories",
       "--multi-collection-mode",
       "--collection-prefix",
       "agent_"
@@ -152,7 +152,7 @@ The server supports a multi-collection mode designed for AI agents, allowing the
 
 In multi-collection mode:
 
-- The `collection-name` parameter specifies the global collection that's always available
+- The `collection-name` parameter specifies the default collection that's always available
 - All collections are automatically prefixed with the value of `collection-prefix` (default: "agent\_")
 - AI agents can specify which collection to store memories in or retrieve from
 - Collections are automatically created when needed
@@ -167,7 +167,7 @@ In multi-collection mode:
       "--qdrant-url",
       "http://localhost:6333",
       "--collection-name",
-      "global_memories",
+      "default_memories",
       "--multi-collection-mode"
     ]
   }
