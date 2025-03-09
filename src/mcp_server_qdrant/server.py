@@ -45,8 +45,8 @@ def serve(
             "and be between 1 and 64 characters long. Examples: 'work', 'personal_notes', 'project-2023'."
         )
         
-        # Check if all collections are protected
-        all_collections_protected = "*" in qdrant_connector._protected_collections
+        # Check if all collections are protected from deletion
+        all_collections_deletion_protected = "*" in qdrant_connector._protected_collections
         
         tools = [
             types.Tool(
@@ -72,41 +72,37 @@ def serve(
                     "required": ["query"],
                 },
             ),
+            # Always add the store memory tool since collections are now insert-only, not read-only
+            types.Tool(
+                name="qdrant-store-memory",
+                description=(
+                    "Keep the memory for later use, when you are asked to remember something."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "information": {
+                            "type": "string",
+                        },
+                        **({"replace_memory_ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "Optional list of memory IDs to replace with this new memory.",
+                        }} if not all_collections_deletion_protected else {}),
+                        **({"collection_name": {
+                            "type": "string",
+                            "description": collection_name_description
+                        }} if qdrant_connector._multi_collection_mode else {}),
+                    },
+                    "required": ["information"],
+                },
+            )
         ]
         
-        # Only add the store memory tool if not all collections are protected
-        if not all_collections_protected:
-            tools.append(
-                types.Tool(
-                    name="qdrant-store-memory",
-                    description=(
-                        "Keep the memory for later use, when you are asked to remember something."
-                    ),
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "information": {
-                                "type": "string",
-                            },
-                            "replace_memory_ids": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string"
-                                },
-                                "description": "Optional list of memory IDs to replace with this new memory.",
-                            },
-                            **({"collection_name": {
-                                "type": "string",
-                                "description": collection_name_description
-                                }} if qdrant_connector._multi_collection_mode else {}),
-                        },
-                        "required": ["information"],
-                    },
-                )
-            )
-        
-        # Only add the delete memories tool if not all collections are protected
-        if not all_collections_protected:
+        # Only add the delete memories tool if not all collections are protected from deletion
+        if not all_collections_deletion_protected:
             tools.append(
                 types.Tool(
                     name="qdrant-delete-memories",
@@ -173,13 +169,13 @@ def serve(
     async def handle_tool_call(
         name: str, arguments: dict | None
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-        # Check if all collections are protected
-        all_collections_protected = "*" in qdrant_connector._protected_collections
+        # Check if all collections are protected from deletion
+        all_collections_deletion_protected = "*" in qdrant_connector._protected_collections
         
         valid_tools = ["qdrant-store-memory", "qdrant-find-memories"]
         
-        # Only add the delete memories tool if not all collections are protected
-        if not all_collections_protected:
+        # Only add the delete memories tool if not all collections are protected from deletion
+        if not all_collections_deletion_protected:
             valid_tools.append("qdrant-delete-memories")
         
         # Add multi-collection tools if enabled
@@ -187,8 +183,8 @@ def serve(
             valid_tools.extend(["qdrant-list-collections", "qdrant-find-memories-across-collections"])
             
         if name not in valid_tools:
-            if name == "qdrant-delete-memories" and all_collections_protected:
-                return [types.TextContent(type="text", text="Error: All collections are protected and cannot be modified.")]
+            if name == "qdrant-delete-memories" and all_collections_deletion_protected:
+                return [types.TextContent(type="text", text="Error: All collections are protected from deletion operations (insert-only).")]
             raise ValueError(f"Unknown tool: {name}")
 
         if name == "qdrant-store-memory":
@@ -198,11 +194,6 @@ def serve(
             information = arguments["information"]
             collection_name = arguments.get("collection_name") if qdrant_connector._multi_collection_mode else None
             replace_memory_ids = arguments.get("replace_memory_ids", [])
-            
-            # Check if all collections are protected
-            all_collections_protected = "*" in qdrant_connector._protected_collections
-            if all_collections_protected:
-                return [types.TextContent(type="text", text="Error: All collections are protected and cannot be modified.")]
             
             try:
                 memory_id = await qdrant_connector.store_memory(
@@ -245,11 +236,11 @@ def serve(
                     )
                 else:
                     # If all collections are protected, don't show readonly tags
-                    all_collections_protected = "*" in qdrant_connector._protected_collections
+                    all_collections_deletion_protected = "*" in qdrant_connector._protected_collections
                     
                     for memory in memories:
                         # Only show readonly tag if not all collections are protected
-                        readonly_tag = " readonly" if memory.get("readonly", False) and not all_collections_protected else ""
+                        readonly_tag = " readonly" if memory.get("readonly", False) and not all_collections_deletion_protected else ""
                         content.append(
                             types.TextContent(
                                 type="text", 
@@ -273,7 +264,8 @@ def serve(
                 
                 response = f"Successfully deleted {deleted_count} memories."
                 if deleted_count < len(memory_ids):
-                    response += f" ({len(memory_ids) - deleted_count} memories were not found or could not be deleted.)"
+                    skipped_count = len(memory_ids) - deleted_count
+                    response += f" ({skipped_count} memories were not found or in protected collections.)"
                     
                 return [types.TextContent(type="text", text=response)]
             except ValueError as e:
@@ -327,7 +319,7 @@ def serve(
                 )
             else:
                 # If all collections are protected, don't show readonly tags
-                all_collections_protected = "*" in qdrant_connector._protected_collections
+                all_collections_deletion_protected = "*" in qdrant_connector._protected_collections
                 
                 for collection, memories in results.items():
                     content.append(
@@ -336,7 +328,7 @@ def serve(
                     
                     for memory in memories:
                         # Only show readonly tag if not all collections are protected
-                        readonly_tag = " readonly" if memory.get("readonly", False) and not all_collections_protected else ""
+                        readonly_tag = " readonly" if memory.get("readonly", False) and not all_collections_deletion_protected else ""
                         content.append(
                             types.TextContent(
                                 type="text", 
@@ -414,7 +406,7 @@ def serve(
     "--protect-collections",
     envvar="PROTECT_COLLECTIONS",
     required=False,
-    help="Comma-separated list of collection names that are protected from modification or deletion. In multi-collection mode, if specified without values, all collections will be protected.",
+    help="Comma-separated list of collection names that are protected from deletion operations (insert-only). In multi-collection mode, if specified without values, all collections will be insert-only.",
     is_flag=False,
     flag_value="",
 )

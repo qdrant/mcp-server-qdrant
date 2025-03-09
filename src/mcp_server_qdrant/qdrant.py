@@ -120,6 +120,25 @@ class QdrantConnector:
             return True
             
         return collection_name in self._protected_collections
+        
+    def _is_collection_deletion_protected(self, collection_name: str) -> bool:
+        """
+        Check if a collection is protected from deletion operations.
+        This is used to implement insert-only collections.
+        :param collection_name: The collection name to check
+        :return: True if the collection is protected from deletion, False otherwise
+        """
+        return self._is_collection_protected(collection_name)
+        
+    def _is_collection_readonly(self, collection_name: str) -> bool:
+        """
+        Check if a collection is completely read-only (no insertions or deletions).
+        :param collection_name: The collection name to check
+        :return: True if the collection is read-only, False otherwise
+        """
+        # For now, we don't have a separate read-only mode
+        # This can be extended in the future to support different protection levels
+        return False
 
     async def _ensure_collection_exists(self, collection_name: Optional[str] = None):
         """
@@ -200,13 +219,13 @@ class QdrantConnector:
                                If None, use the default collection.
         :param replace_memory_ids: Optional list of memory IDs to delete before storing the new memory.
         :return: The ID of the stored memory.
-        :raises ValueError: If the collection is protected from modification.
+        :raises ValueError: If the collection is completely read-only.
         """
         collection_for_id = collection_name if collection_name else self._collection_name
         
-        # Check if the collection is protected
-        if self._is_collection_protected(collection_for_id):
-            raise ValueError(f"Collection '{collection_for_id}' is protected and cannot be modified.")
+        # Check if the collection is read-only
+        if self._is_collection_readonly(collection_for_id):
+            raise ValueError(f"Collection '{collection_for_id}' is read-only and cannot be modified.")
             
         # Delete memories to be replaced if specified
         if replace_memory_ids:
@@ -272,7 +291,7 @@ class QdrantConnector:
             {
                 "content": result.payload["document"],
                 "id": self._create_memory_id(collection_for_id, result.id),
-                "readonly": self._is_collection_protected(collection_for_id)
+                "readonly": self._is_collection_deletion_protected(collection_for_id) or self._is_collection_readonly(collection_for_id)
             } 
             for result in search_results
         ]
@@ -306,8 +325,8 @@ class QdrantConnector:
         """
         Delete memories by their IDs.
         :param memory_ids: List of memory IDs to delete.
-        :return: Number of memories successfully deleted.
-        :raises ValueError: If any of the collections are protected from deletion.
+        :return: Number of memories successfully deleted. Note that memories in protected collections
+                 will be silently skipped (not deleted) and not counted in the returned count.
         """
         # Group memory IDs by collection for batch deletion
         collection_points: Dict[str, List[str]] = {}
@@ -315,9 +334,9 @@ class QdrantConnector:
         for memory_id in memory_ids:
             collection, point_id = self._get_collection_from_memory_id(memory_id)
             
-            # Check if the collection is protected
-            if self._is_collection_protected(collection):
-                raise ValueError(f"Collection '{collection}' is protected and cannot be modified.")
+            # Skip protected collections silently
+            if self._is_collection_deletion_protected(collection):
+                continue
                 
             # Get the prefixed collection name - this handles the default collection correctly
             prefixed_name = self._get_prefixed_collection_name(collection)
@@ -348,4 +367,5 @@ class QdrantConnector:
             # In a production environment, you might want to verify this by checking if the points still exist
             deleted_count += len(point_ids)
             
+        # Return only the count of actually deleted memories
         return deleted_count

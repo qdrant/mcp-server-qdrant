@@ -136,7 +136,7 @@ async def test_protected_collections():
             qdrant_local_path=temp_dir,
             multi_collection_mode=True,
             collection_prefix="test_",
-            protected_collections={"cats"}  # Protect the "cats" collection
+            protected_collections={"cats"}  # Protect the "cats" collection from deletion
         )
         
         # Test storing memories in different collections
@@ -147,18 +147,9 @@ async def test_protected_collections():
         dog_memory_id = await connector.store_memory("This is a memory about dogs", "dogs")
         print(f"Stored dog memory with ID: {dog_memory_id}")
         
-        # Test storing in a protected collection (should fail)
-        try:
-            await connector.store_memory("This should fail", "cats")
-            assert False, "Should have failed to store in protected collection"
-        except ValueError as e:
-            print(f"Expected error for protected collection: {e}")
-        
-        # Create a memory in the protected collection by temporarily removing protection
-        connector._protected_collections.remove("cats")
+        # Test storing in a protected collection (should work now since collections are insert-only)
         cat_memory_id = await connector.store_memory("This is a memory about cats", "cats")
         print(f"Stored cat memory with ID: {cat_memory_id}")
-        connector._protected_collections.add("cats")
         
         # Test finding memories in protected collection (should work)
         cat_memories = await connector.find_memories("cats", "cats")
@@ -166,12 +157,15 @@ async def test_protected_collections():
         assert len(cat_memories) > 0, "No cat memories found"
         assert cat_memories[0].get("readonly", False), "Memory should be marked as readonly"
         
-        # Test deleting from protected collection (should fail)
-        try:
-            await connector.delete_memories([cat_memory_id])
-            assert False, "Should have failed to delete from protected collection"
-        except ValueError as e:
-            print(f"Expected error for deleting from protected collection: {e}")
+        # Test deleting from protected collection (should work)
+        deleted_count = await connector.delete_memories([cat_memory_id])
+        print(f"Deleted count (should be 0 since memory was skipped): {deleted_count}")
+        assert deleted_count == 0, f"Expected to delete 0 memories, but got {deleted_count}"
+        
+        # Verify the memory still exists
+        cat_memories_after = await connector.find_memories("cats", "cats")
+        print(f"Cat memories after delete attempt: {json.dumps(cat_memories_after, indent=2)}")
+        assert len(cat_memories_after) == len(cat_memories), "Cat memory should still exist"
         
         # Test deleting from unprotected collection (should work)
         deleted_count = await connector.delete_memories([dog_memory_id])
@@ -211,13 +205,10 @@ async def test_protect_all_collections():
             qdrant_local_path=temp_dir,
             multi_collection_mode=True,
             collection_prefix="test_",
-            protected_collections={"*"}  # Protect all collections
+            protected_collections={"*"}  # Protect all collections from deletion
         )
         
-        # Create some collections first by temporarily removing protection
-        connector._protected_collections.clear()
-        
-        # Store memories in different collections
+        # Store memories in different collections (should work with the new insert-only model)
         default_memory_id = await connector.store_memory("This is a default memory", None)
         print(f"Stored default memory with ID: {default_memory_id}")
         
@@ -226,28 +217,6 @@ async def test_protect_all_collections():
         
         dog_memory_id = await connector.store_memory("This is a memory about dogs", "dogs")
         print(f"Stored dog memory with ID: {dog_memory_id}")
-        
-        # Re-enable protection for all collections
-        connector._protected_collections = {"*"}
-        
-        # Test storing in any collection (should fail)
-        try:
-            await connector.store_memory("This should fail", "cats")
-            assert False, "Should have failed to store in protected collection"
-        except ValueError as e:
-            print(f"Expected error for protected collection: {e}")
-            
-        try:
-            await connector.store_memory("This should fail", "dogs")
-            assert False, "Should have failed to store in protected collection"
-        except ValueError as e:
-            print(f"Expected error for protected collection: {e}")
-            
-        try:
-            await connector.store_memory("This should fail", "default")
-            assert False, "Should have failed to store in protected collection"
-        except ValueError as e:
-            print(f"Expected error for protected collection: {e}")
         
         # Test finding memories in protected collections (should work)
         cat_memories = await connector.find_memories("cats", "cats")
@@ -260,18 +229,19 @@ async def test_protect_all_collections():
         assert len(dog_memories) > 0, "No dog memories found"
         assert dog_memories[0].get("readonly", False), "Memory should be marked as readonly in the connector"
         
-        # Test deleting from any collection (should fail)
-        try:
-            await connector.delete_memories([cat_memory_id])
-            assert False, "Should have failed to delete from protected collection"
-        except ValueError as e:
-            print(f"Expected error for deleting from protected collection: {e}")
-            
-        try:
-            await connector.delete_memories([dog_memory_id])
-            assert False, "Should have failed to delete from protected collection"
-        except ValueError as e:
-            print(f"Expected error for deleting from protected collection: {e}")
+        # Test deleting from any collection (should silently skip)
+        deleted_count = await connector.delete_memories([cat_memory_id, dog_memory_id])
+        print(f"Deleted count (should be 0 since all memories were skipped): {deleted_count}")
+        assert deleted_count == 0, f"Expected to delete 0 memories, but got {deleted_count}"
+        
+        # Verify the memories still exist
+        cat_memories_after = await connector.find_memories("cats", "cats")
+        print(f"Cat memories after delete attempt: {json.dumps(cat_memories_after, indent=2)}")
+        assert len(cat_memories_after) == len(cat_memories), "Cat memory should still exist"
+        
+        dog_memories_after = await connector.find_memories("dogs", "dogs")
+        print(f"Dog memories after delete attempt: {json.dumps(dog_memories_after, indent=2)}")
+        assert len(dog_memories_after) == len(dog_memories), "Dog memory should still exist"
         
         # Test finding memories across collections
         all_memories = await connector.find_memories_across_collections("pets")
