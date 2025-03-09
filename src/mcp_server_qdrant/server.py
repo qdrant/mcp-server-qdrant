@@ -50,30 +50,6 @@ def serve(
         
         tools = [
             types.Tool(
-                name="qdrant-find-memories",
-                description=(
-                    "Look up memories in Qdrant. Use this tool when you need to: \n"
-                    " - Find memories by their content \n"
-                    " - Access memories for further analysis \n"
-                    " - Get some personal information about the user"
-                ),
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "The query to search for in the memories",
-                        },
-                        **({"collection_name": {
-                            "type": "string",
-                            "description": collection_name_description,
-                        }} if qdrant_connector._multi_collection_mode else {}),
-                    },
-                    "required": ["query"],
-                },
-            ),
-            # Always add the store memory tool since collections are now insert-only, not read-only
-            types.Tool(
                 name="qdrant-store-memory",
                 description=(
                     "Keep the memory for later use, when you are asked to remember something."
@@ -97,6 +73,29 @@ def serve(
                         }} if qdrant_connector._multi_collection_mode else {}),
                     },
                     "required": ["information"],
+                },
+            ),
+            types.Tool(
+                name="qdrant-find-memories",
+                description=(
+                    "Look up memories in Qdrant. Use this tool when you need to: \n"
+                    " - Find memories by their content \n"
+                    " - Access memories for further analysis \n"
+                    " - Get some personal information about the user"
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The query to search for in the memories",
+                        },
+                        **({"collection_name": {
+                            "type": "string",
+                            "description": collection_name_description,
+                        }} if qdrant_connector._multi_collection_mode else {}),
+                    },
+                    "required": ["query"],
                 },
             )
         ]
