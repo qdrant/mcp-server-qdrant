@@ -163,26 +163,28 @@ class QdrantConnector:
         # Ensure default collection is first in the list if it exists
         if self._collection_name in collection_names:
             collection_names.remove(self._collection_name)
-            collection_names.insert(0, self._collection_name)
+
+        # always make sure the default collection is first in the list
+        collection_names.insert(0, self._collection_name)
         
         # If in multi-collection mode, filter to only show collections with the prefix
         if self._multi_collection_mode and self._collection_prefix:
+            result = [self._collection_name] # always include the default collection
+
             prefix_len = len(self._collection_prefix)
-            result = [
+            result += [
                 name[prefix_len:] 
                 for name in collection_names 
                 if name.startswith(self._collection_prefix) and name != self._collection_name
             ]
-            
-            # Add the default collection if it's not already in the list
-            # (could happen if default collection has the same prefix)
-            default_collection = self._collection_name
-            if default_collection not in result:
-                # Add default collection as the first item in the list
-                result.insert(0, default_collection)
                 
             return result
         
+        # if for some reason we're not in multi-collection mode, return the default collection
+        if not self._multi_collection_mode:
+            return [self._collection_name]
+
+        # If in multi-collection mode, and no prefix is set, return all collections
         return collection_names
 
     async def store_memory(
