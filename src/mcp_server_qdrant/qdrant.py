@@ -160,14 +160,28 @@ class QdrantConnector:
         collections = await self._client.get_collections()
         collection_names = [c.name for c in collections.collections]
         
+        # Ensure default collection is first in the list if it exists
+        if self._collection_name in collection_names:
+            collection_names.remove(self._collection_name)
+            collection_names.insert(0, self._collection_name)
+        
         # If in multi-collection mode, filter to only show collections with the prefix
         if self._multi_collection_mode and self._collection_prefix:
             prefix_len = len(self._collection_prefix)
-            return [
+            result = [
                 name[prefix_len:] 
                 for name in collection_names 
-                if name.startswith(self._collection_prefix)
+                if name.startswith(self._collection_prefix) and name != self._collection_name
             ]
+            
+            # Add the default collection if it's not already in the list
+            # (could happen if default collection has the same prefix)
+            default_collection = self._collection_name
+            if default_collection not in result:
+                # Add default collection as the first item in the list
+                result.insert(0, default_collection)
+                
+            return result
         
         return collection_names
 
@@ -277,7 +291,7 @@ class QdrantConnector:
         # Always include the global collection
         global_memories = await self.find_memories(query)
         if global_memories:
-            results["global"] = global_memories
+            results[self._collection_name] = global_memories
         
         # Search in each collection
         for collection in collections:

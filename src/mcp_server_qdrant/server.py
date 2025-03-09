@@ -296,8 +296,13 @@ def serve(
                 )
             else:
                 for collection in collections:
+                    collection_extra = ""
+                    
+                    if collection == qdrant_connector._collection_name:
+                        collection_extra = " (default)"
+
                     content.append(
-                        types.TextContent(type="text", text=f"- {collection}")
+                        types.TextContent(type="text", text=f"- {collection}{collection_extra}")
                     )
                     
             return content
