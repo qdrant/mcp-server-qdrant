@@ -41,8 +41,8 @@ def serve(
         """
         collection_name_description = (
             "Optional collection name to store the memory in. If not provided, the default collection will be used. "
-            "Collection names must contain only alphanumeric characters, underscores, and hyphens (a-z, A-Z, 0-9, _, -), "
-            "and be between 1 and 64 characters long. Examples: 'work', 'personal_notes', 'project-2023'."
+            "Collection names should be in a slug format, without special characters, and between 1 and 64 characters long. "
+            "The collection name doesn't have to exist yet, it will be created automatically."
         )
         
         # Check if all collections are protected from deletion
