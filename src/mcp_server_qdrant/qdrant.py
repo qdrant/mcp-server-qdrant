@@ -17,7 +17,8 @@ class QdrantConnector:
     :param qdrant_local_path: The path to the storage directory for the Qdrant client, if local mode is used.
     :param multi_collection_mode: Whether to enable multi-collection mode for AI agents.
     :param collection_prefix: Prefix for all collections in multi-collection mode.
-    :param protected_collections: Set of collection names that are protected from modification or deletion.
+    :param protected_collections: Set of collection names that are protected from deletion operations (insert-only).
+    :param readonly_collections: Set of collection names that are completely read-only (no insertions or deletions).
     """
 
     # Regex pattern for valid collection names
@@ -35,6 +36,7 @@ class QdrantConnector:
         multi_collection_mode: bool = False,
         collection_prefix: Optional[str] = None,
         protected_collections: Optional[Set[str]] = None,
+        readonly_collections: Optional[Set[str]] = None,
     ):
         self._qdrant_url = qdrant_url.rstrip("/") if qdrant_url else None
         self._qdrant_api_key = qdrant_api_key
@@ -44,6 +46,7 @@ class QdrantConnector:
         self._multi_collection_mode = multi_collection_mode
         self._collection_prefix = collection_prefix or ""
         self._protected_collections = protected_collections or set()
+        self._readonly_collections = readonly_collections or set()
         
         # Initialize the Qdrant client
         if qdrant_url:
@@ -128,9 +131,11 @@ class QdrantConnector:
         :param collection_name: The collection name to check
         :return: True if the collection is read-only, False otherwise
         """
-        # For now, we don't have a separate read-only mode
-        # This can be extended in the future to support different protection levels
-        return False
+        # If "*" is in readonly_collections, all collections are read-only
+        if "*" in self._readonly_collections:
+            return True
+            
+        return collection_name in self._readonly_collections
 
     async def _ensure_collection_exists(self, collection_name: Optional[str] = None):
         """
@@ -317,8 +322,8 @@ class QdrantConnector:
         """
         Delete memories by their IDs.
         :param memory_ids: List of memory IDs to delete.
-        :return: Number of memories successfully deleted. Note that memories in protected collections
-                 will be silently skipped (not deleted) and not counted in the returned count.
+        :return: Number of memories successfully deleted. Note that memories in protected or read-only
+                 collections will be silently skipped (not deleted) and not counted in the returned count.
         """
         # Group memory IDs by collection for batch deletion
         collection_points: Dict[str, List[str]] = {}
@@ -326,8 +331,8 @@ class QdrantConnector:
         for memory_id in memory_ids:
             collection, point_id = self._get_collection_from_memory_id(memory_id)
             
-            # Skip protected collections silently
-            if self._is_collection_deletion_protected(collection):
+            # Skip protected or read-only collections silently
+            if self._is_collection_deletion_protected(collection) or self._is_collection_readonly(collection):
                 continue
                 
             # Get the prefixed collection name - this handles the default collection correctly

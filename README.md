@@ -187,7 +187,8 @@ The configuration of the server can be also done using environment variables:
 - `QDRANT_LOCAL_PATH`: Path to the local Qdrant database
 - `MULTI_COLLECTION_MODE`: Enable multi-collection mode for AI agents (set to any value to enable)
 - `COLLECTION_PREFIX`: Prefix for all collections in multi-collection mode
-- `PROTECT_COLLECTIONS`: Prevent deletion of memories, use `*` to block all deletion, or specify collection names to make specific collections insert only.
+- `PROTECT_COLLECTIONS`: Comma-separated list of collection names that are protected from deletion operations (insert-only). In multi-collection mode, if specified without values, all collections will be insert-only.
+- `READONLY_COLLECTIONS`: Comma-separated list of collection names that are completely read-only (no insertions or deletions). In multi-collection mode, if specified without values, all collections will be read-only.
 
 You cannot provide `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
 

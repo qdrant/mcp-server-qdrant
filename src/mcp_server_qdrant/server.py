@@ -48,33 +48,44 @@ def serve(
         # Check if all collections are protected from deletion
         all_collections_deletion_protected = "*" in qdrant_connector._protected_collections
         
-        tools = [
-            types.Tool(
-                name="qdrant-store-memory",
-                description=(
-                    "Keep the memory for later use, when you are asked to remember something."
-                ),
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "information": {
-                            "type": "string",
-                        },
-                        **({"replace_memory_ids": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
+        # Check if all collections are read-only
+        all_collections_readonly = "*" in qdrant_connector._readonly_collections
+        
+        tools = []
+        
+        # Only add the store memory tool if not all collections are read-only
+        if not all_collections_readonly:
+            tools.append(
+                types.Tool(
+                    name="qdrant-store-memory",
+                    description=(
+                        "Keep the memory for later use, when you are asked to remember something."
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "information": {
+                                "type": "string",
                             },
-                            "description": "Optional list of memory IDs to replace with this new memory.",
-                        }} if not all_collections_deletion_protected else {}),
-                        **({"collection_name": {
-                            "type": "string",
-                            "description": collection_name_description
-                        }} if qdrant_connector._multi_collection_mode else {}),
+                            **({"replace_memory_ids": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "description": "Optional list of memory IDs to replace with this new memory.",
+                            }} if not all_collections_deletion_protected else {}),
+                            **({"collection_name": {
+                                "type": "string",
+                                "description": collection_name_description,
+                            }} if qdrant_connector._multi_collection_mode else {}),
+                        },
+                        "required": ["information"],
                     },
-                    "required": ["information"],
-                },
-            ),
+                )
+            )
+        
+        # Always add the find memories tool
+        tools.append(
             types.Tool(
                 name="qdrant-find-memories",
                 description=(
@@ -98,7 +109,7 @@ def serve(
                     "required": ["query"],
                 },
             )
-        ]
+        )
         
         # Only add the delete memories tool if not all collections are protected from deletion
         if not all_collections_deletion_protected:
@@ -171,7 +182,14 @@ def serve(
         # Check if all collections are protected from deletion
         all_collections_deletion_protected = "*" in qdrant_connector._protected_collections
         
-        valid_tools = ["qdrant-store-memory", "qdrant-find-memories"]
+        # Check if all collections are read-only
+        all_collections_readonly = "*" in qdrant_connector._readonly_collections
+        
+        valid_tools = ["qdrant-find-memories"]
+        
+        # Only add the store memory tool if not all collections are read-only
+        if not all_collections_readonly:
+            valid_tools.append("qdrant-store-memory")
         
         # Only add the delete memories tool if not all collections are protected from deletion
         if not all_collections_deletion_protected:
@@ -184,6 +202,8 @@ def serve(
         if name not in valid_tools:
             if name == "qdrant-delete-memories" and all_collections_deletion_protected:
                 return [types.TextContent(type="text", text="Error: All collections are protected from deletion operations (insert-only).")]
+            if name == "qdrant-store-memory" and all_collections_readonly:
+                return [types.TextContent(type="text", text="Error: All collections are read-only and cannot be modified.")]
             raise ValueError(f"Unknown tool: {name}")
 
         if name == "qdrant-store-memory":
@@ -426,6 +446,14 @@ def serve(
     is_flag=False,
     flag_value="",
 )
+@click.option(
+    "--readonly-collections",
+    envvar="READONLY_COLLECTIONS",
+    required=False,
+    help="Comma-separated list of collection names that are completely read-only (no insertions or deletions). In multi-collection mode, if specified without values, all collections will be read-only.",
+    is_flag=False,
+    flag_value="",
+)
 def main(
     qdrant_url: Optional[str],
     qdrant_api_key: str,
@@ -437,6 +465,7 @@ def main(
     multi_collection_mode: bool,
     collection_prefix: Optional[str],
     protect_collections: Optional[str],
+    readonly_collections: Optional[str],
 ):
     # XOR of url and local path, since we accept only one of them
     if not (bool(qdrant_url) ^ bool(qdrant_local_path)):
@@ -470,6 +499,24 @@ def main(
         if not multi_collection_mode and protected_collections:
             protected_collections = {collection_name}
             
+    # Parse readonly collections
+    readonly_collections_set = set()
+    if readonly_collections is not None:
+        # If readonly_collections is specified but empty in multi-collection mode,
+        # we'll make all collections read-only (determined dynamically)
+        if readonly_collections == "" and multi_collection_mode:
+            # We'll set a flag to indicate that all collections should be read-only
+            # The actual collection names will be determined at runtime
+            readonly_collections_set = {"*"}  # Special marker for "all collections"
+        else:
+            # Otherwise, make the specified collections read-only
+            readonly_collections_set = set(name.strip() for name in readonly_collections.split(",") if name.strip())
+            
+        # If not in multi-collection mode and readonly_collections is specified,
+        # assume the default collection should be read-only
+        if not multi_collection_mode and readonly_collections_set:
+            readonly_collections_set = {collection_name}
+            
     async def _run():
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
             # Create the embedding provider
@@ -488,6 +535,7 @@ def main(
                 multi_collection_mode=multi_collection_mode,
                 collection_prefix=collection_prefix,
                 protected_collections=protected_collections,
+                readonly_collections=readonly_collections_set,
             )
 
             # Create and run the server

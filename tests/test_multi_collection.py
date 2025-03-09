@@ -330,8 +330,123 @@ async def test_delete_default_memories():
         print("All default memory deletion tests passed!")
 
 
+async def test_readonly_collections():
+    """Test read-only collections functionality."""
+    print("\nTesting read-only collections functionality...")
+    
+    # Create a temporary directory for Qdrant local storage
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Create embedding provider
+        provider = create_embedding_provider(
+            provider_type="fastembed",
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+        
+        # Create QdrantConnector with multi-collection mode enabled and read-only collections
+        connector = QdrantConnector(
+            qdrant_url=None,
+            qdrant_api_key=None,
+            collection_name="default",
+            embedding_provider=provider,
+            qdrant_local_path=temp_dir,
+            multi_collection_mode=True,
+            collection_prefix="test_",
+            readonly_collections={"cats"}  # Make the "cats" collection read-only
+        )
+        
+        # Test storing memories in different collections
+        default_memory_id = await connector.store_memory("This is a default memory", None)
+        print(f"Stored default memory with ID: {default_memory_id}")
+        
+        # Store a memory in the unprotected "dogs" collection
+        dog_memory_id = await connector.store_memory("This is a memory about dogs", "dogs")
+        print(f"Stored dog memory with ID: {dog_memory_id}")
+        
+        # Test storing in a read-only collection (should fail)
+        try:
+            cat_memory_id = await connector.store_memory("This is a memory about cats", "cats")
+            assert False, "Should not be able to store memory in read-only collection"
+        except ValueError as e:
+            print(f"Expected error when storing in read-only collection: {e}")
+            assert "read-only" in str(e), "Error message should mention read-only"
+        
+        # Create a memory in the cats collection by temporarily removing the read-only status
+        connector._readonly_collections.remove("cats")
+        cat_memory_id = await connector.store_memory("This is a memory about cats", "cats")
+        print(f"Stored cat memory with ID: {cat_memory_id}")
+        connector._readonly_collections.add("cats")
+        
+        # Test finding memories in read-only collection (should work)
+        cat_memories = await connector.find_memories("cats", "cats")
+        print(f"Cat memories: {json.dumps(cat_memories, indent=2)}")
+        assert len(cat_memories) > 0, "No cat memories found"
+        assert cat_memories[0].get("readonly", False), "Memory should be marked as readonly in the connector"
+        
+        # Test deleting memories in read-only collection (should fail)
+        try:
+            deleted_count = await connector.delete_memories([cat_memory_id])
+            # This should not fail because delete_memories silently skips protected collections
+            assert deleted_count == 0, "Should not delete any memories in read-only collection"
+        except ValueError as e:
+            print(f"Error when deleting from read-only collection: {e}")
+
+
+async def test_readonly_all_collections():
+    """Test making all collections read-only functionality."""
+    print("\nTesting read-only all collections functionality...")
+    
+    # Create a temporary directory for Qdrant local storage
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Create embedding provider
+        provider = create_embedding_provider(
+            provider_type="fastembed",
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+        
+        # Create QdrantConnector with multi-collection mode enabled and all collections read-only
+        connector = QdrantConnector(
+            qdrant_url=None,
+            qdrant_api_key=None,
+            collection_name="default",
+            embedding_provider=provider,
+            qdrant_local_path=temp_dir,
+            multi_collection_mode=True,
+            collection_prefix="test_",
+            readonly_collections={"*"}  # Make all collections read-only
+        )
+        
+        # Test storing memories in different collections (should all fail)
+        try:
+            default_memory_id = await connector.store_memory("This is a default memory", None)
+            assert False, "Should not be able to store memory when all collections are read-only"
+        except ValueError as e:
+            print(f"Expected error when storing in read-only collection: {e}")
+            assert "read-only" in str(e), "Error message should mention read-only"
+        
+        # Create a memory by temporarily removing the read-only status
+        connector._readonly_collections.clear()
+        default_memory_id = await connector.store_memory("This is a default memory", None)
+        print(f"Stored default memory with ID: {default_memory_id}")
+        cat_memory_id = await connector.store_memory("This is a memory about cats", "cats")
+        print(f"Stored cat memory with ID: {cat_memory_id}")
+        connector._readonly_collections.add("*")
+        
+        # Test finding memories (should work)
+        default_memories = await connector.find_memories("default", None)
+        print(f"Default memories: {json.dumps(default_memories, indent=2)}")
+        assert len(default_memories) > 0, "No default memories found"
+        assert default_memories[0].get("readonly", False), "Memory should be marked as readonly in the connector"
+        
+        cat_memories = await connector.find_memories("cats", "cats")
+        print(f"Cat memories: {json.dumps(cat_memories, indent=2)}")
+        assert len(cat_memories) > 0, "No cat memories found"
+        assert cat_memories[0].get("readonly", False), "Memory should be marked as readonly in the connector"
+
+
 if __name__ == "__main__":
     asyncio.run(test_multi_collection())
     asyncio.run(test_protected_collections())
     asyncio.run(test_protect_all_collections())
-    asyncio.run(test_delete_default_memories()) 
+    asyncio.run(test_delete_default_memories())
+    asyncio.run(test_readonly_collections())
+    asyncio.run(test_readonly_all_collections()) 
