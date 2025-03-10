@@ -1,12 +1,13 @@
+import json
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, List
+from typing import AsyncIterator, List, Optional
 
 from mcp.server import Server
 from mcp.server.fastmcp import Context, FastMCP
 
 from mcp_server_qdrant.embeddings.factory import create_embedding_provider
-from mcp_server_qdrant.qdrant import QdrantConnector
+from mcp_server_qdrant.qdrant import Entry, Metadata, QdrantConnector
 from mcp_server_qdrant.settings import EmbeddingProviderSettings, QdrantSettings
 
 logger = logging.getLogger(__name__)
@@ -57,28 +58,32 @@ mcp = FastMCP("mcp-server-qdrant", lifespan=server_lifespan)
 
 
 @mcp.tool(
-    name="qdrant-store-memory",
+    name="qdrant-store",
     description=(
         "Keep the memory for later use, when you are asked to remember something."
     ),
 )
-async def store(information: str, ctx: Context) -> str:
+async def store(
+    ctx: Context, information: str, metadata: Optional[Metadata] = None
+) -> str:
     """
     Store a memory in Qdrant.
-    :param information: The information to store.
     :param ctx: The context for the request.
+    :param information: The information to store.
+    :param metadata: JSON metadata to store with the information, optional.
     :return: A message indicating that the information was stored.
     """
     await ctx.debug(f"Storing information {information} in Qdrant")
     qdrant_connector: QdrantConnector = ctx.request_context.lifespan_context[
         "qdrant_connector"
     ]
-    await qdrant_connector.store(information)
+    entry = Entry(content=information, metadata=metadata)
+    await qdrant_connector.store(entry)
     return f"Remembered: {information}"
 
 
 @mcp.tool(
-    name="qdrant-find-memories",
+    name="qdrant-find",
     description=(
         "Look up memories in Qdrant. Use this tool when you need to: \n"
         " - Find memories by their content \n"
@@ -86,11 +91,11 @@ async def store(information: str, ctx: Context) -> str:
         " - Get some personal information about the user"
     ),
 )
-async def find(query: str, ctx: Context) -> List[str]:
+async def find(ctx: Context, query: str) -> List[str]:
     """
     Find memories in Qdrant.
-    :param query: The query to use for the search.
     :param ctx: The context for the request.
+    :param query: The query to use for the search.
     :return: A list of entries found.
     """
     await ctx.debug(f"Finding points for query {query}")
@@ -104,5 +109,9 @@ async def find(query: str, ctx: Context) -> List[str]:
         f"Memories for the query '{query}'",
     ]
     for entry in entries:
-        content.append(f"<entry>{entry}</entry>")
+        # Format the metadata as a JSON string and produce XML-like output
+        entry_metadata = json.dumps(entry.metadata) if entry.metadata else ""
+        content.append(
+            f"<entry><content>{entry.content}</content><metadata>{entry_metadata}</metadata></entry>"
+        )
     return content

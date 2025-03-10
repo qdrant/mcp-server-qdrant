@@ -19,16 +19,17 @@ It acts as a semantic memory layer on top of the Qdrant database.
 
 ### Tools
 
-1. `qdrant-store-memory`
-   - Store a memory in the Qdrant database
+1. `qdrant-store`
+   - Store some information in the Qdrant database
    - Input:
-     - `information` (string): Memory to store
+     - `information` (string): Information to store
+     - `metadata` (JSON): Optional metadata to store
    - Returns: Confirmation message
-2. `qdrant-find-memories`
-   - Retrieve a memory from the Qdrant database
+2. `qdrant-find`
+   - Retrieve relevant information from the Qdrant database
    - Input:
-     - `query` (string): Query to retrieve a memory
-   - Returns: Memories stored in the Qdrant database as separate messages
+     - `query` (string): Query to use for searching
+   - Returns: Information stored in the Qdrant database as separate messages
 
 ## Installation in Claude Desktop
 

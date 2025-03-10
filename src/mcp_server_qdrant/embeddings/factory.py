@@ -1,4 +1,4 @@
-from mcp_server_qdrant.embeddings import EmbeddingProvider
+from mcp_server_qdrant.embeddings.base import EmbeddingProvider
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
 from mcp_server_qdrant.settings import EmbeddingProviderSettings
 
