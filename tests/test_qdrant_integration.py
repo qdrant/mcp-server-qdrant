@@ -97,7 +97,7 @@ async def test_ensure_collection_exists(qdrant_connector):
     """Test that the collection is created if it doesn't exist."""
     # The collection shouldn't exist yet
     assert not await qdrant_connector._client.collection_exists(
-        qdrant_connector._collection_name
+        qdrant_connector._default_collection_name
     )
 
     # Storing an entry should create the collection
@@ -106,7 +106,7 @@ async def test_ensure_collection_exists(qdrant_connector):
 
     # Now the collection should exist
     assert await qdrant_connector._client.collection_exists(
-        qdrant_connector._collection_name
+        qdrant_connector._default_collection_name
     )
 
 
@@ -159,3 +159,80 @@ async def test_entry_without_metadata(qdrant_connector):
     assert len(results) == 1
     assert results[0].content == "Entry without metadata"
     assert results[0].metadata is None
+
+
+@pytest.mark.asyncio
+async def test_custom_collection_store_and_search(qdrant_connector):
+    """Test storing and searching in a custom collection."""
+    # Define a custom collection name
+    custom_collection = f"custom_collection_{uuid.uuid4().hex}"
+
+    # Store a test entry in the custom collection
+    test_entry = Entry(
+        content="This is stored in a custom collection",
+        metadata={"custom": True},
+    )
+    await qdrant_connector.store(test_entry, collection_name=custom_collection)
+
+    # Search in the custom collection
+    results = await qdrant_connector.search(
+        "custom collection", collection_name=custom_collection
+    )
+
+    # Verify results
+    assert len(results) == 1
+    assert results[0].content == test_entry.content
+    assert results[0].metadata == test_entry.metadata
+
+    # Verify the entry is not in the default collection
+    default_results = await qdrant_connector.search("custom collection")
+    assert len(default_results) == 0
+
+
+@pytest.mark.asyncio
+async def test_multiple_collections(qdrant_connector):
+    """Test using multiple collections with the same connector."""
+    # Define two custom collection names
+    collection_a = f"collection_a_{uuid.uuid4().hex}"
+    collection_b = f"collection_b_{uuid.uuid4().hex}"
+
+    # Store entries in different collections
+    entry_a = Entry(
+        content="This belongs to collection A", metadata={"collection": "A"}
+    )
+    entry_b = Entry(
+        content="This belongs to collection B", metadata={"collection": "B"}
+    )
+    entry_default = Entry(content="This belongs to the default collection")
+
+    await qdrant_connector.store(entry_a, collection_name=collection_a)
+    await qdrant_connector.store(entry_b, collection_name=collection_b)
+    await qdrant_connector.store(entry_default)
+
+    # Search in collection A
+    results_a = await qdrant_connector.search("belongs", collection_name=collection_a)
+    assert len(results_a) == 1
+    assert results_a[0].content == entry_a.content
+
+    # Search in collection B
+    results_b = await qdrant_connector.search("belongs", collection_name=collection_b)
+    assert len(results_b) == 1
+    assert results_b[0].content == entry_b.content
+
+    # Search in default collection
+    results_default = await qdrant_connector.search("belongs")
+    assert len(results_default) == 1
+    assert results_default[0].content == entry_default.content
+
+
+@pytest.mark.asyncio
+async def test_nonexistent_collection_search(qdrant_connector):
+    """Test searching in a collection that doesn't exist."""
+    # Search in a collection that doesn't exist
+    nonexistent_collection = f"nonexistent_{uuid.uuid4().hex}"
+    results = await qdrant_connector.search(
+        "test query", collection_name=nonexistent_collection
+    )
+
+    # Verify results
+    assert len(results) == 0
