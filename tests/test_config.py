@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
+from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
 from mcp_server_qdrant.settings import EmbeddingProviderSettings, QdrantSettings
 
 
@@ -47,15 +48,15 @@ class TestEmbeddingProviderSettings:
     def test_default_values(self):
         """Test default values are set correctly."""
         settings = EmbeddingProviderSettings()
-        assert settings.provider_type == "fastembed"
+        assert settings.provider_type == EmbeddingProviderType.FASTEMBED
         assert settings.model_name == "sentence-transformers/all-MiniLM-L6-v2"
 
     @patch.dict(
         os.environ,
-        {"EMBEDDING_PROVIDER": "custom_provider", "EMBEDDING_MODEL": "custom_model"},
+        {"EMBEDDING_MODEL": "custom_model"},
     )
     def test_custom_values(self):
         """Test loading custom values from environment variables."""
         settings = EmbeddingProviderSettings()
-        assert settings.provider_type == "custom_provider"
+        assert settings.provider_type == EmbeddingProviderType.FASTEMBED
         assert settings.model_name == "custom_model"
