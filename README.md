@@ -1,7 +1,10 @@
 # mcp-server-qdrant: A Qdrant MCP server
 [![smithery badge](https://smithery.ai/badge/mcp-server-qdrant)](https://smithery.ai/protocol/mcp-server-qdrant)
 
-> The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables seamless integration between LLM applications and external data sources and tools. Whether you’re building an AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to connect LLMs with the context they need.
+> The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables
+> seamless integration between LLM applications and external data sources and tools. Whether you’re building an
+> AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to
+> connect LLMs with the context they need.
 
 This repository is an example of how to create a MCP server for [Qdrant](https://qdrant.tech/), a vector search engine.
 
@@ -51,7 +54,8 @@ npx @smithery/cli install mcp-server-qdrant --client claude
 
 ### Manual configuration
 
-To use this server with the Claude Desktop app, add the following configuration to the "mcpServers" section of your `claude_desktop_config.json`:
+To use this server with the Claude Desktop app, add the following configuration to the "mcpServers" section of your
+`claude_desktop_config.json`:
 
 ```json
 {
@@ -88,6 +92,12 @@ This MCP server will automatically create a collection with the specified name i
 
 By default, the server will use the `sentence-transformers/all-MiniLM-L6-v2` embedding model to encode memories.
 For the time being, only [FastEmbed](https://qdrant.github.io/fastembed/) models are supported.
+
+### Support for other tools
+
+This MCP server can be used with any MCP-compatible client. For example, you can use it with
+[Cursor](https://docs.cursor.com/context/model-context-protocol), which provides built-in support for the Model Context
+Protocol.
 
 ## Environment Variables
 
