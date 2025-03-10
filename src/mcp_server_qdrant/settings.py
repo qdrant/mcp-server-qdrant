@@ -12,7 +12,8 @@ class EmbeddingProviderSettings(BaseSettings):
     """
 
     provider_type: EmbeddingProviderType = Field(
-        default=EmbeddingProviderType.FASTEMBED, validation_alias="EMBEDDING_PROVIDER"
+        default=EmbeddingProviderType.FASTEMBED,
+        validation_alias="EMBEDDING_PROVIDER",
     )
     model_name: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",
