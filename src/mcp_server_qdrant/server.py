@@ -64,13 +64,18 @@ mcp = FastMCP("mcp-server-qdrant", lifespan=server_lifespan)
     ),
 )
 async def store(
-    ctx: Context, information: str, metadata: Optional[Metadata] = None
+    ctx: Context,
+    information: str,
+    metadata: Optional[Metadata] = None,
+    collection_name: Optional[str] = None,
 ) -> str:
     """
     Store a memory in Qdrant.
     :param ctx: The context for the request.
     :param information: The information to store.
     :param metadata: JSON metadata to store with the information, optional.
+    :param collection_name: The name of the collection to store the information in, optional. If not provided,
+                            the default collection is used.
     :return: A message indicating that the information was stored.
     """
     await ctx.debug(f"Storing information {information} in Qdrant")
@@ -78,7 +83,9 @@ async def store(
         "qdrant_connector"
     ]
     entry = Entry(content=information, metadata=metadata)
-    await qdrant_connector.store(entry)
+    await qdrant_connector.store(entry, collection_name=collection_name)
+    if collection_name:
+        return f"Remembered: {information} in collection {collection_name}"
     return f"Remembered: {information}"
 
 
@@ -91,18 +98,30 @@ async def store(
         " - Get some personal information about the user"
     ),
 )
-async def find(ctx: Context, query: str) -> List[str]:
+async def find(
+    ctx: Context,
+    query: str,
+    collection_name: Optional[str] = None,
+    limit: int = 10,
+) -> List[str]:
     """
     Find memories in Qdrant.
     :param ctx: The context for the request.
     :param query: The query to use for the search.
+    :param collection_name: The name of the collection to search in, optional. If not provided,
+                            the default collection is used.
+    :param limit: The maximum number of entries to return, optional. Default is 10.
     :return: A list of entries found.
     """
     await ctx.debug(f"Finding points for query {query}")
+    if collection_name:
+        await ctx.debug(f"Overriding the collection name with {collection_name}")
     qdrant_connector: QdrantConnector = ctx.request_context.lifespan_context[
         "qdrant_connector"
     ]
-    entries = await qdrant_connector.search(query)
+    entries = await qdrant_connector.search(
+        query, collection_name=collection_name, limit=limit
+    )
     if not entries:
         return [f"No memories found for the query '{query}'"]
     content = [

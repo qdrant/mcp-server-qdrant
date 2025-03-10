@@ -24,11 +24,15 @@ It acts as a semantic memory layer on top of the Qdrant database.
    - Input:
      - `information` (string): Information to store
      - `metadata` (JSON): Optional metadata to store
+     - `collection_name` (string): Name of the collection to store the information in, optional. If not provided,
+                                   the default collection name will be used.
    - Returns: Confirmation message
 2. `qdrant-find`
    - Retrieve relevant information from the Qdrant database
    - Input:
      - `query` (string): Query to use for searching
+     - `collection_name` (string): Name of the collection to store the information in, optional. If not provided,
+                                   the default collection name will be used.
    - Returns: Information stored in the Qdrant database as separate messages
 
 ## Installation in Claude Desktop
@@ -106,7 +110,8 @@ The configuration of the server is done using environment variables:
 
 - `QDRANT_URL`: URL of the Qdrant server, e.g. `http://localhost:6333`
 - `QDRANT_API_KEY`: API key for the Qdrant server (optional, depends on Qdrant server configuration)
-- `COLLECTION_NAME`: Name of the collection to use (required)
+- `COLLECTION_NAME`: Name of the default collection to use (required). It might be overridden by the `collection_name`
+  parameter in the request
 - `EMBEDDING_MODEL`: Name of the embedding model to use (default: `sentence-transformers/all-MiniLM-L6-v2`)
 - `EMBEDDING_PROVIDER`: Embedding provider to use (currently only "fastembed" is supported)
 - `QDRANT_LOCAL_PATH`: Path to the local Qdrant database (alternative to `QDRANT_URL`)
