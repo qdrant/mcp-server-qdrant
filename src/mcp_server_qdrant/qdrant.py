@@ -47,6 +47,14 @@ class QdrantConnector:
             location=qdrant_url, api_key=qdrant_api_key, path=qdrant_local_path
         )
 
+    async def get_collection_names(self) -> list[str]:
+        """
+        Get the names of all collections in the Qdrant server.
+        :return: A list of collection names.
+        """
+        response = await self._client.get_collections()
+        return [collection.name for collection in response.collections]
+
     async def store(self, entry: Entry, *, collection_name: Optional[str] = None):
         """
         Store some information in the Qdrant collection, along with the specified metadata.
