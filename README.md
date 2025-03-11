@@ -180,6 +180,11 @@ that describe what you're looking for.
 > adjusting the descriptions to better match your team's workflow and the specific types of code snippets you want to
 > store and retrieve.
 
+**If you have successfully installed the `mcp-server-qdrant`, but still can't get it to work with Cursor, please
+consider creating the [Cursor rules](https://docs.cursor.com/context/rules-for-ai) so the MCP tools are always used when
+the agent produces a new code snippet.** You can restrict the rules to only work for certain file types, to avoid using
+the MCP server for the documentation or other types of content.
+
 ## Contributing
 
 If you have suggestions for how mcp-server-qdrant could be improved, or want to report a bug, open an issue!
