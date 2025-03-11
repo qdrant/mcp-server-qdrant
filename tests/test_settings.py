@@ -4,7 +4,13 @@ from unittest.mock import patch
 import pytest
 
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
-from mcp_server_qdrant.settings import EmbeddingProviderSettings, QdrantSettings
+from mcp_server_qdrant.settings import (
+    DEFAULT_TOOL_FIND_DESCRIPTION,
+    DEFAULT_TOOL_STORE_DESCRIPTION,
+    EmbeddingProviderSettings,
+    QdrantSettings,
+    ToolSettings,
+)
 
 
 class TestQdrantSettings:
@@ -60,3 +66,44 @@ class TestEmbeddingProviderSettings:
         settings = EmbeddingProviderSettings()
         assert settings.provider_type == EmbeddingProviderType.FASTEMBED
         assert settings.model_name == "custom_model"
+
+
+class TestToolSettings:
+    def test_default_values(self):
+        """Test that default values are set correctly when no env vars are provided."""
+        settings = ToolSettings()
+        assert settings.tool_store_description == DEFAULT_TOOL_STORE_DESCRIPTION
+        assert settings.tool_find_description == DEFAULT_TOOL_FIND_DESCRIPTION
+
+    @patch.dict(
+        os.environ,
+        {"TOOL_STORE_DESCRIPTION": "Custom store description"},
+    )
+    def test_custom_store_description(self):
+        """Test loading custom store description from environment variable."""
+        settings = ToolSettings()
+        assert settings.tool_store_description == "Custom store description"
+        assert settings.tool_find_description == DEFAULT_TOOL_FIND_DESCRIPTION
+
+    @patch.dict(
+        os.environ,
+        {"TOOL_FIND_DESCRIPTION": "Custom find description"},
+    )
+    def test_custom_find_description(self):
+        """Test loading custom find description from environment variable."""
+        settings = ToolSettings()
+        assert settings.tool_store_description == DEFAULT_TOOL_STORE_DESCRIPTION
+        assert settings.tool_find_description == "Custom find description"
+
+    @patch.dict(
+        os.environ,
+        {
+            "TOOL_STORE_DESCRIPTION": "Custom store description",
+            "TOOL_FIND_DESCRIPTION": "Custom find description",
+        },
+    )
+    def test_all_custom_values(self):
+        """Test loading all custom values from environment variables."""
+        settings = ToolSettings()
+        assert settings.tool_store_description == "Custom store description"
+        assert settings.tool_find_description == "Custom find description"
