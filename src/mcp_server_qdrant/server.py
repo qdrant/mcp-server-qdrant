@@ -1,7 +1,7 @@
 import json
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, List, Optional
+from typing import AsyncIterator, List
 
 from mcp.server import Server
 from mcp.server.fastmcp import Context, FastMCP
@@ -69,10 +69,15 @@ tool_settings = ToolSettings()
 
 @mcp.tool(name="qdrant-store", description=tool_settings.tool_store_description)
 async def store(
-    ctx: Context, information: str, metadata: Optional[Metadata] = None
+    ctx: Context,
+    information: str,
+    # The `metadata` parameter is defined as non-optional, but it can be None.
+    # If we set it to be optional, some of the MCP clients, like Cursor, cannot
+    # handle the optional parameter correctly.
+    metadata: Metadata = None,
 ) -> str:
     """
-    Store a memory in Qdrant.
+    Store some information in Qdrant.
     :param ctx: The context for the request.
     :param information: The information to store.
     :param metadata: JSON metadata to store with the information, optional.
