@@ -161,7 +161,7 @@ running Cursor/Windsurf locally, you can use the following URL:
 http://localhost:8000/sse
 ```
 
-> [!INFO]
+> [!TIP]
 > We suggest SSE transport as a preferred way to connect Cursor/Windsurf to the MCP server, as it can support remote
 > connections. That makes it easy to share the server with your team or use it in a cloud environment.
 
