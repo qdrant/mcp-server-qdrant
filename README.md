@@ -31,9 +31,6 @@ It acts as a semantic memory layer on top of the Qdrant database.
      - `query` (string): Query to use for searching
    - Returns: Information stored in the Qdrant database as separate messages
 
-> [!NOTE]
-> The tool descriptions provided above are examples and may need to be customized for your specific use case. Consider adjusting the descriptions to better match your team's workflow and the specific types of code snippets you want to store and retrieve.
-
 ## Environment Variables
 
 The configuration of the server is done using environment variables:
