@@ -81,6 +81,22 @@ Supported transport protocols:
 
 The default transport is `stdio` if not specified.
 
+### Using Docker
+
+A Dockerfile is available for building and running the MCP server:
+
+```bash
+# Build the container
+docker build -t mcp-server-qdrant .
+
+# Run the container
+docker run -p 8000:8000 \
+  -e QDRANT_URL="http://your-qdrant-server:6333" \
+  -e QDRANT_API_KEY="your-api-key" \
+  -e COLLECTION_NAME="your-collection" \
+  mcp-server-qdrant
+```
+
 ### Installing via Smithery
 
 To install Qdrant MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/protocol/mcp-server-qdrant):
@@ -144,8 +160,15 @@ descriptions:
 ```bash
 QDRANT_URL="http://localhost:6333" \
 COLLECTION_NAME="code-snippets" \
-TOOL_STORE_DESCRIPTION="Store reusable code snippets for later retrieval. The 'information' parameter should contain a natural language description of what the code does, while the actual code should be included in the 'metadata' parameter as a 'code' property. The value of 'metadata' is a Python dictionary with strings as keys. Use this whenever you generate some code snippet." \
-TOOL_FIND_DESCRIPTION="Search for relevant code snippets based on natural language descriptions. The 'query' parameter should describe what you're looking for, and the tool will return the most relevant code snippets. Use this when you need to find existing code snippets for reuse or reference." \
+TOOL_STORE_DESCRIPTION="Store reusable code snippets for later retrieval. \
+The 'information' parameter should contain a natural language description of what the code does, \
+while the actual code should be included in the 'metadata' parameter as a 'code' property. \
+The value of 'metadata' is a Python dictionary with strings as keys. \
+Use this whenever you generate some code snippet." \
+TOOL_FIND_DESCRIPTION="Search for relevant code snippets based on natural language descriptions. \
+The 'query' parameter should describe what you're looking for, \
+and the tool will return the most relevant code snippets. \
+Use this when you need to find existing code snippets for reuse or reference." \
 uvx mcp-server-qdrant --transport sse # Enable SSE transport
 ```
 
