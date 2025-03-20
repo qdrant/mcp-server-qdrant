@@ -24,6 +24,8 @@ fast_mcp = FastMCP("Enhanced Qdrant MCP")
 QDRANT_URL = "http://localhost:6333"
 COLLECTION_NAME = "claude-test"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+DEFAULT_VECTOR_SIZE = 384
+DEFAULT_DISTANCE = "Cosine"
 
 @asynccontextmanager
 async def server_lifespan(server) -> AsyncIterator[Dict[str, Any]]:
@@ -318,6 +320,338 @@ async def analyze_collection(
         "payload_fields": list(payload_fields),
         "sample_size": len(sample_entries)
     }
+
+# Collection Management Tools
+
+@fast_mcp.tool(name="create_collection")
+async def create_collection(
+    ctx: Context,
+    name: str,
+    vector_size: int = DEFAULT_VECTOR_SIZE,
+    distance: str = DEFAULT_DISTANCE,
+    hnsw_config: Optional[Dict[str, Any]] = None,
+    optimizers_config: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Create a new vector collection with specified parameters.
+    
+    Args:
+        name: Name for the new collection
+        vector_size: Size of vector embeddings
+        distance: Distance metric ("Cosine", "Euclid", "Dot")
+        hnsw_config: Optional HNSW index configuration
+        optimizers_config: Optional optimizers configuration
+    
+    Returns:
+        Status of the collection creation
+    """
+    await ctx.info(f"Creating collection: {name}")
+    
+    # Get Qdrant connector from context
+    qdrant_connector = ctx.request_context.lifespan_context["qdrant_connector"]
+    
+    # Check if collection already exists
+    collection_exists = await qdrant_connector._client.collection_exists(name)
+    if collection_exists:
+        return {
+            "status": "error",
+            "message": f"Collection {name} already exists"
+        }
+    
+    # Convert string distance to enum
+    distance_type = None
+    if distance.lower() == "cosine":
+        distance_type = models.Distance.COSINE
+    elif distance.lower() == "euclid":
+        distance_type = models.Distance.EUCLID
+    elif distance.lower() == "dot":
+        distance_type = models.Distance.DOT
+    else:
+        return {
+            "status": "error",
+            "message": f"Unsupported distance type: {distance}. Use 'Cosine', 'Euclid', or 'Dot'."
+        }
+    
+    # Get vector name from embedding provider
+    vector_name = qdrant_connector._embedding_provider.get_vector_name()
+    
+    # Create vector config
+    vector_config = {
+        vector_name: models.VectorParams(
+            size=vector_size,
+            distance=distance_type,
+        )
+    }
+    
+    # Create HNSW config if provided
+    hnsw_params = None
+    if hnsw_config:
+        hnsw_params = models.HnswConfigDiff(
+            m=hnsw_config.get("m", 16),
+            ef_construct=hnsw_config.get("ef_construct", 100),
+            full_scan_threshold=hnsw_config.get("full_scan_threshold", 10000)
+        )
+    
+    # Create optimizers config if provided
+    optimizers_params = None
+    if optimizers_config:
+        optimizers_params = models.OptimizersConfigDiff(
+            deleted_threshold=optimizers_config.get("deleted_threshold", 0.2),
+            vacuum_min_vector_number=optimizers_config.get("vacuum_min_vector_number", 1000),
+            default_segment_number=optimizers_config.get("default_segment_number", 0),
+            max_segment_size=optimizers_config.get("max_segment_size", None),
+            memmap_threshold=optimizers_config.get("memmap_threshold", None),
+            indexing_threshold=optimizers_config.get("indexing_threshold", 20000),
+            flush_interval_sec=optimizers_config.get("flush_interval_sec", 5),
+            max_optimization_threads=optimizers_config.get("max_optimization_threads", 1)
+        )
+    
+    try:
+        # Create the collection
+        await qdrant_connector._client.create_collection(
+            collection_name=name,
+            vectors_config=vector_config,
+            hnsw_config=hnsw_params,
+            optimizers_config=optimizers_params
+        )
+        
+        return {
+            "status": "success",
+            "message": f"Collection {name} created successfully",
+            "details": {
+                "name": name,
+                "vector_size": vector_size,
+                "distance": distance,
+                "vector_name": vector_name
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error creating collection: {e}")
+        return {
+            "status": "error",
+            "message": f"Error creating collection: {str(e)}"
+        }
+
+@fast_mcp.tool(name="migrate_collection")
+async def migrate_collection(
+    ctx: Context,
+    source_collection: str,
+    target_collection: str,
+    batch_size: int = 100,
+    transform_fn: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Migrate data between collections with optional transformations.
+    
+    Args:
+        source_collection: Source collection name
+        target_collection: Target collection name
+        batch_size: Number of points per batch
+        transform_fn: Python code for point transformation (use with caution)
+    
+    Returns:
+        Migration status and statistics
+    """
+    await ctx.info(f"Migrating from {source_collection} to {target_collection}")
+    
+    # Get Qdrant connector from context
+    qdrant_connector = ctx.request_context.lifespan_context["qdrant_connector"]
+    
+    # Check if source collection exists
+    source_exists = await qdrant_connector._client.collection_exists(source_collection)
+    if not source_exists:
+        return {
+            "status": "error",
+            "message": f"Source collection {source_collection} does not exist"
+        }
+    
+    # Check if target collection exists, create it if not
+    target_exists = await qdrant_connector._client.collection_exists(target_collection)
+    if not target_exists:
+        # Get source collection info to copy configuration
+        source_info = await qdrant_connector._client.get_collection(source_collection)
+        
+        # Extract vector configuration from source
+        vector_config = {}
+        for name, params in source_info.config.params.vectors.items():
+            vector_config[name] = models.VectorParams(
+                size=params.size,
+                distance=params.distance,
+            )
+        
+        # Create target collection with same config
+        await qdrant_connector._client.create_collection(
+            collection_name=target_collection,
+            vectors_config=vector_config,
+        )
+        
+        await ctx.info(f"Created target collection {target_collection}")
+    
+    # Define transform function if provided
+    transform = None
+    if transform_fn:
+        try:
+            # This is potentially dangerous, but we'll allow it for admin usage
+            # pylint: disable=eval-used
+            transform = eval(f"lambda point: {transform_fn}")
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error in transform function: {str(e)}"
+            }
+    
+    # Start migration
+    total_migrated = 0
+    offset = None
+    
+    try:
+        while True:
+            # Get a batch of points from source
+            scroll_result = await qdrant_connector._client.scroll(
+                collection_name=source_collection,
+                limit=batch_size,
+                offset=offset
+            )
+            
+            points = scroll_result[0]
+            if not points:
+                break
+            
+            # Apply transformation if provided
+            if transform:
+                transformed_points = []
+                for point in points:
+                    try:
+                        transformed = transform(point)
+                        if transformed:
+                            transformed_points.append(transformed)
+                    except Exception as e:
+                        await ctx.info(f"Error transforming point {point.id}: {str(e)}")
+                points = transformed_points
+            
+            # Insert points into target
+            if points:
+                await qdrant_connector._client.upsert(
+                    collection_name=target_collection,
+                    points=points
+                )
+                
+                total_migrated += len(points)
+                await ctx.info(f"Migrated {len(points)} points, total: {total_migrated}")
+            
+            # Update offset for next batch
+            if points:
+                offset = points[-1].id
+            else:
+                break
+        
+        return {
+            "status": "success",
+            "message": f"Migration completed successfully",
+            "total_migrated": total_migrated,
+            "source": source_collection,
+            "target": target_collection
+        }
+    except Exception as e:
+        logger.error(f"Error during migration: {e}")
+        return {
+            "status": "error",
+            "message": f"Error during migration: {str(e)}",
+            "total_migrated": total_migrated
+        }
+
+@fast_mcp.tool(name="list_collections")
+async def list_collections(ctx: Context) -> Dict[str, Any]:
+    """
+    List all available collections.
+    
+    Returns:
+        List of collection names and basic information
+    """
+    await ctx.info("Listing collections")
+    
+    # Get Qdrant connector from context
+    qdrant_connector = ctx.request_context.lifespan_context["qdrant_connector"]
+    
+    try:
+        # Get all collections
+        collections = await qdrant_connector._client.get_collections()
+        
+        # Get detailed info for each collection
+        collection_details = []
+        for collection in collections.collections:
+            try:
+                info = await qdrant_connector._client.get_collection(collection.name)
+                collection_details.append({
+                    "name": collection.name,
+                    "vectors_count": info.vectors_count,
+                    "points_count": info.points_count,
+                    "status": "green" if info.status == "green" else "degraded"
+                })
+            except Exception as e:
+                collection_details.append({
+                    "name": collection.name,
+                    "error": str(e),
+                    "status": "unknown"
+                })
+        
+        return {
+            "status": "success",
+            "collections": collection_details,
+            "total": len(collection_details)
+        }
+    except Exception as e:
+        logger.error(f"Error listing collections: {e}")
+        return {
+            "status": "error",
+            "message": f"Error listing collections: {str(e)}"
+        }
+
+@fast_mcp.tool(name="delete_collection")
+async def delete_collection(ctx: Context, name: str, confirm: bool = False) -> Dict[str, Any]:
+    """
+    Delete a collection (requires confirmation).
+    
+    Args:
+        name: Name of the collection to delete
+        confirm: Must be set to true to confirm deletion
+    
+    Returns:
+        Status of the deletion operation
+    """
+    await ctx.info(f"Deleting collection: {name}")
+    
+    if not confirm:
+        return {
+            "status": "error",
+            "message": "Deletion requires confirmation. Set confirm=True to proceed."
+        }
+    
+    # Get Qdrant connector from context
+    qdrant_connector = ctx.request_context.lifespan_context["qdrant_connector"]
+    
+    # Check if collection exists
+    collection_exists = await qdrant_connector._client.collection_exists(name)
+    if not collection_exists:
+        return {
+            "status": "error",
+            "message": f"Collection {name} does not exist"
+        }
+    
+    try:
+        # Delete the collection
+        await qdrant_connector._client.delete_collection(name)
+        
+        return {
+            "status": "success",
+            "message": f"Collection {name} deleted successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error deleting collection: {e}")
+        return {
+            "status": "error",
+            "message": f"Error deleting collection: {str(e)}"
+        }
 
 # Main function to run the server
 if __name__ == "__main__":
