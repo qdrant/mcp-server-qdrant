@@ -1,15 +1,61 @@
-import asyncio
+import json
+import logging
 import importlib.metadata
-from typing import Optional
+import os
+from contextlib import asynccontextmanager
+from typing import AsyncIterator, List, Dict, Any, Optional
+
+# Import and load dotenv if it exists
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv is optional - continue without it
+    pass
 
 import click
 import mcp
 import mcp.types as types
+from mcp.server.fastmcp import FastMCP
 from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
+from mcp.server.fastmcp import Context
 
-from .embeddings.factory import create_embedding_provider
-from .qdrant import QdrantConnector
+from mcp_server_qdrant.embeddings.factory import create_embedding_provider
+from mcp_server_qdrant.qdrant import Entry, Metadata, QdrantConnector
+from mcp_server_qdrant.settings import (
+    EmbeddingProviderSettings,
+    QdrantSettings,
+    ToolSettings,
+)
+from mcp_server_qdrant.tools import (
+    # Search tools
+    natural_language_query,
+    hybrid_search,
+    multi_vector_search,
+    
+    # Collection management tools
+    create_collection,
+    migrate_collection,
+    
+    # Data processing tools
+    batch_embed,
+    chunk_and_process,
+    
+    # Advanced query tools
+    semantic_router,
+    decompose_query,
+    
+    # Analytics tools
+    analyze_collection,
+    benchmark_query,
+    
+    # Document processing tools
+    index_document,
+    process_pdf,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def get_package_version() -> str:
@@ -21,93 +67,125 @@ def get_package_version() -> str:
         return "0.0.0"
 
 
-def serve(
-    qdrant_connector: QdrantConnector,
-) -> Server:
+# Load the tool settings from the env variables, if they are set,
+# or use the default values otherwise.
+tool_settings = ToolSettings()
+
+# Create a FastMCP instance to use for tool registration
+fast_mcp = FastMCP("Qdrant MCP")
+
+
+@fast_mcp.tool(name="qdrant-store", description=tool_settings.tool_store_description)
+async def store(
+    ctx: Context,
+    information: str,
+    # The `metadata` parameter is defined as non-optional, but it can be None.
+    # If we set it to be optional, some of the MCP clients, like Cursor, cannot
+    # handle the optional parameter correctly.
+    metadata: Metadata = None,
+) -> str:
     """
-    Instantiate the server and configure tools to store and find memories in Qdrant.
-    :param qdrant_connector: An instance of QdrantConnector to use for storing and retrieving memories.
+    Store some information in Qdrant.
+    :param ctx: The context for the request.
+    :param information: The information to store.
+    :param metadata: JSON metadata to store with the information, optional.
+    :return: A message indicating that the information was stored.
     """
-    server = Server("qdrant")
+    await ctx.debug(f"Storing information {information} in Qdrant")
+    qdrant_connector: QdrantConnector = ctx.request_context.lifespan_context[
+        "qdrant_connector"
+    ]
+    entry = Entry(content=information, metadata=metadata)
+    await qdrant_connector.store(entry)
+    return f"Remembered: {information}"
 
-    @server.list_tools()
-    async def handle_list_tools() -> list[types.Tool]:
-        """
-        Return the list of tools that the server provides. By default, there are two
-        tools: one to store memories and another to find them. Finding the memories is not
-        implemented as a resource, as it requires a query to be passed and resources point
-        to a very specific piece of data.
-        """
-        return [
-            types.Tool(
-                name="qdrant-store-memory",
-                description=(
-                    "Keep the memory for later use, when you are asked to remember something."
-                ),
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "information": {
-                            "type": "string",
-                        },
-                    },
-                    "required": ["information"],
-                },
-            ),
-            types.Tool(
-                name="qdrant-find-memories",
-                description=(
-                    "Look up memories in Qdrant. Use this tool when you need to: \n"
-                    " - Find memories by their content \n"
-                    " - Access memories for further analysis \n"
-                    " - Get some personal information about the user"
-                ),
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "The query to search for",
-                        }
-                    },
-                    "required": ["query"],
-                },
-            ),
-        ]
 
-    @server.call_tool()
-    async def handle_tool_call(
-        name: str, arguments: dict | None
-    ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-        if name not in ["qdrant-store-memory", "qdrant-find-memories"]:
-            raise ValueError(f"Unknown tool: {name}")
+@fast_mcp.tool(name="qdrant-find", description=tool_settings.tool_find_description)
+async def find(ctx: Context, query: str) -> List[str]:
+    """
+    Find memories in Qdrant.
+    :param ctx: The context for the request.
+    :param query: The query to use for the search.
+    :return: A list of entries found.
+    """
+    await ctx.debug(f"Finding results for query {query}")
+    qdrant_connector: QdrantConnector = ctx.request_context.lifespan_context[
+        "qdrant_connector"
+    ]
+    entries = await qdrant_connector.search(query)
+    if not entries:
+        return [f"No information found for the query '{query}'"]
+    content = [
+        f"Results for the query '{query}'",
+    ]
+    for entry in entries:
+        # Format the metadata as a JSON string and produce XML-like output
+        entry_metadata = json.dumps(entry.metadata) if entry.metadata else ""
+        content.append(
+            f"<entry><content>{entry.content}</content><metadata>{entry_metadata}</metadata></entry>"
+        )
+    return content
 
-        if name == "qdrant-store-memory":
-            if not arguments or "information" not in arguments:
-                raise ValueError("Missing required argument 'information'")
-            information = arguments["information"]
-            await qdrant_connector.store_memory(information)
-            return [types.TextContent(type="text", text=f"Remembered: {information}")]
 
-        if name == "qdrant-find-memories":
-            if not arguments or "query" not in arguments:
-                raise ValueError("Missing required argument 'query'")
-            query = arguments["query"]
-            memories = await qdrant_connector.find_memories(query)
-            content = [
-                types.TextContent(
-                    type="text", text=f"Memories for the query '{query}'"
-                ),
-            ]
-            for memory in memories:
-                content.append(
-                    types.TextContent(type="text", text=f"<memory>{memory}</memory>")
-                )
-            return content
+# Register all the custom tools
 
-        raise ValueError(f"Unknown tool: {name}")
+# Search tools
+@fast_mcp.tool(name="nlq-search", description=tool_settings.nlq_search_description)
+async def nlq_search(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await natural_language_query(ctx, **kwargs)
 
-    return server
+@fast_mcp.tool(name="hybrid-search", description=tool_settings.hybrid_search_description)
+async def hybrid_search_tool(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await hybrid_search(ctx, **kwargs)
+
+@fast_mcp.tool(name="multi-vector-search", description=tool_settings.multi_vector_search_description)
+async def multi_vector_search_tool(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await multi_vector_search(ctx, **kwargs)
+
+# Collection management tools
+@fast_mcp.tool(name="create-collection", description=tool_settings.create_collection_description)
+async def create_collection_tool(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await create_collection(ctx, **kwargs)
+
+@fast_mcp.tool(name="migrate-collection", description=tool_settings.migrate_collection_description)
+async def migrate_collection_tool(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await migrate_collection(ctx, **kwargs)
+
+# Data processing tools
+@fast_mcp.tool(name="batch-embed", description=tool_settings.batch_embed_description)
+async def batch_embed_tool(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await batch_embed(ctx, **kwargs)
+
+@fast_mcp.tool(name="chunk-and-process", description=tool_settings.chunk_and_process_description)
+async def chunk_and_process_tool(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await chunk_and_process(ctx, **kwargs)
+
+# Advanced query tools
+@fast_mcp.tool(name="semantic-router", description=tool_settings.semantic_router_description)
+async def semantic_router_tool(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await semantic_router(ctx, **kwargs)
+
+@fast_mcp.tool(name="decompose-query", description=tool_settings.decompose_query_description)
+async def decompose_query_tool(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await decompose_query(ctx, **kwargs)
+
+# Analytics tools
+@fast_mcp.tool(name="analyze-collection", description=tool_settings.analyze_collection_description)
+async def analyze_collection_tool(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await analyze_collection(ctx, **kwargs)
+
+@fast_mcp.tool(name="benchmark-query", description=tool_settings.benchmark_query_description)
+async def benchmark_query_tool(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await benchmark_query(ctx, **kwargs)
+
+# Document processing tools
+@fast_mcp.tool(name="index-document", description=tool_settings.index_document_description)
+async def index_document_tool(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await index_document(ctx, **kwargs)
+
+@fast_mcp.tool(name="process-pdf", description=tool_settings.process_pdf_description)
+async def process_pdf_tool(ctx: Context, **kwargs) -> Dict[str, Any]:
+    return await process_pdf(ctx, **kwargs)
 
 
 @click.command()
@@ -180,35 +258,57 @@ def main(
             err=True,
         )
 
+    # Note: The main entry point needs to be updated to use the new approach with tools
+    import asyncio
+    
     async def _run():
+        # Setup logging
+        logging.basicConfig(level=logging.DEBUG)
+        logger.debug("Starting Qdrant MCP server...")
+        
+        # Load settings from environment
+        embedding_settings = EmbeddingProviderSettings()
+        
+        # Create the embedding provider
+        logger.debug(f"Creating embedding provider: {embedding_provider}")
+        provider = create_embedding_provider(
+            provider_type=embedding_provider or embedding_settings.provider_type,
+            model_name=embedding_model or embedding_settings.model_name,
+        )
+        logger.debug("Embedding provider created successfully")
+        
+        # Create the Qdrant connector directly instead of using QdrantSettings
+        logger.debug(f"Connecting to Qdrant: URL={qdrant_url}, Collection={collection_name}, Local path={qdrant_local_path}")
+        qdrant_connector = QdrantConnector(
+            qdrant_url,
+            qdrant_api_key,
+            collection_name,
+            provider,
+            qdrant_local_path,
+        )
+        logger.debug("Qdrant connector created successfully")
+        
+        @asynccontextmanager
+        async def server_lifespan(mcp_server) -> AsyncIterator[Dict[str, Any]]:
+            try:
+                yield {"qdrant_connector": qdrant_connector}
+            finally:
+                # Cleanup if needed
+                pass
+        
+        # Set the lifespan context manager
+        logger.debug("Setting up lifespan context manager")
+        fast_mcp.settings.lifespan = server_lifespan
+        
+        # We can't use fast_mcp.run() here because we're already in an asyncio context
+        # Instead, let's run the stdio server directly
+        logger.debug("Starting stdio server")
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-            # Create the embedding provider
-            provider = create_embedding_provider(
-                provider_type=embedding_provider, model_name=embedding_model
-            )
-
-            # Create the Qdrant connector
-            qdrant_connector = QdrantConnector(
-                qdrant_url,
-                qdrant_api_key,
-                collection_name,
-                provider,
-                qdrant_local_path,
-            )
-
-            # Create and run the server
-            server = serve(qdrant_connector)
-            await server.run(
+            logger.debug("Stdio server started successfully, starting MCP server")
+            await fast_mcp._mcp_server.run(
                 read_stream,
                 write_stream,
-                InitializationOptions(
-                    server_name="qdrant",
-                    server_version=get_package_version(),
-                    capabilities=server.get_capabilities(
-                        notification_options=NotificationOptions(),
-                        experimental_capabilities={},
-                    ),
-                ),
+                fast_mcp._mcp_server.create_initialization_options(),
             )
 
     asyncio.run(_run())

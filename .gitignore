@@ -163,3 +163,4 @@ cython_debug/
 
 # Project-specific settings
 .aider*
+.qodo

@@ -1,9 +1,30 @@
+import json
 import uuid
-from typing import Optional
+import logging
+from dataclasses import dataclass
+from typing import Dict, Any, List, Optional, TypeAlias, Union
 
 from qdrant_client import AsyncQdrantClient, models
 
 from .embeddings.base import EmbeddingProvider
+
+# Type alias for metadata
+Metadata: TypeAlias = Dict[str, Any]
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Entry:
+    """
+    Represents an entry in the Qdrant collection.
+    :param content: The content of the entry.
+    :param metadata: Optional metadata associated with the entry.
+    :param id: Optional ID for the entry. If not provided, a random UUID will be generated.
+    """
+    content: str
+    metadata: Optional[Metadata] = None
+    id: Optional[str] = None
 
 
 class QdrantConnector:
@@ -52,35 +73,55 @@ class QdrantConnector:
                     )
                 },
             )
+            logger.info(f"Created collection {self._collection_name} with vector size {vector_size}")
 
-    async def store_memory(self, information: str):
+    async def store(self, entry: Entry):
         """
-        Store a memory in the Qdrant collection.
-        :param information: The information to store.
+        Store an entry in the Qdrant collection.
+        :param entry: The entry to store.
         """
         await self._ensure_collection_exists()
 
+        # Generate ID if not provided
+        entry_id = entry.id or uuid.uuid4().hex
+
         # Embed the document
-        embeddings = await self._embedding_provider.embed_documents([information])
+        embeddings = await self._embedding_provider.embed_documents([entry.content])
 
         # Add to Qdrant
         vector_name = self._embedding_provider.get_vector_name()
+        payload = {"document": entry.content}
+        
+        # Add metadata to payload if provided
+        if entry.metadata:
+            payload["metadata"] = entry.metadata
+
         await self._client.upsert(
             collection_name=self._collection_name,
             points=[
                 models.PointStruct(
-                    id=uuid.uuid4().hex,
+                    id=entry_id,
                     vector={vector_name: embeddings[0]},
-                    payload={"document": information},
+                    payload=payload,
                 )
             ],
         )
+        logger.debug(f"Stored entry with ID {entry_id}")
 
-    async def find_memories(self, query: str) -> list[str]:
+    async def store_memory(self, information: str):
         """
-        Find memories in the Qdrant collection. If there are no memories found, an empty list is returned.
+        Legacy method to store a memory in the Qdrant collection.
+        :param information: The information to store.
+        """
+        entry = Entry(content=information)
+        await self.store(entry)
+
+    async def search(self, query: str, limit: int = 10) -> List[Entry]:
+        """
+        Search for entries in the Qdrant collection.
         :param query: The query to use for the search.
-        :return: A list of memories found.
+        :param limit: The maximum number of results to return.
+        :return: A list of entries found.
         """
         collection_exists = await self._client.collection_exists(self._collection_name)
         if not collection_exists:
@@ -94,7 +135,24 @@ class QdrantConnector:
         search_results = await self._client.search(
             collection_name=self._collection_name,
             query_vector=models.NamedVector(name=vector_name, vector=query_vector),
-            limit=10,
+            limit=limit,
         )
 
-        return [result.payload["document"] for result in search_results]
+        # Convert results to Entry objects
+        entries = []
+        for result in search_results:
+            content = result.payload.get("document", "")
+            metadata = result.payload.get("metadata")
+            entry_id = str(result.id)
+            entries.append(Entry(content=content, metadata=metadata, id=entry_id))
+
+        return entries
+
+    async def find_memories(self, query: str) -> list[str]:
+        """
+        Legacy method to find memories in the Qdrant collection.
+        :param query: The query to use for the search.
+        :return: A list of memory contents found.
+        """
+        entries = await self.search(query)
+        return [entry.content for entry in entries]
