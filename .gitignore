@@ -164,3 +164,10 @@ cython_debug/
 # Project-specific settings
 .aider*
 .qodo
+
+# macOS system files
+.DS_Store
+
+# Local development files
+claude_desktop_config.json
+debug_stdio.py
