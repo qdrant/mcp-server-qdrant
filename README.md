@@ -133,7 +133,7 @@ For local Qdrant mode:
     "command": "uvx",
     "args": ["mcp-server-qdrant"],
     "env": {
-      "QDRANT_LOCAL_PATH": "/path/to/qdrant/database",
+      "QDRANT_URL": "/path/to/qdrant/database",
       "COLLECTION_NAME": "your-collection-name",
       "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2"
     }
