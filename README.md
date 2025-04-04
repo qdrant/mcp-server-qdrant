@@ -205,6 +205,41 @@ consider creating the [Cursor rules](https://docs.cursor.com/context/rules-for-a
 the agent produces a new code snippet.** You can restrict the rules to only work for certain file types, to avoid using
 the MCP server for the documentation or other types of content.
 
+### Using with Claude Code
+
+You can enhance Claude Code's capabilities by connecting it to this MCP server, enabling semantic search over your
+existing codebase.
+
+#### Setting up mcp-server-qdrant
+
+1. Add the MCP server to Claude Code:
+
+    ```shell
+    # Add mcp-server-qdrant configured for code search
+    claude mcp add code-search \
+    -e QDRANT_URL="http://localhost:6333" \
+    -e COLLECTION_NAME="code-repository" \
+    -e EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2" \
+    -e TOOL_STORE_DESCRIPTION="Store code snippets with descriptions. The 'information' parameter should contain a natural language description of what the code does, while the actual code should be included in the 'metadata' parameter as a 'code' property." \
+    -e TOOL_FIND_DESCRIPTION="Search for relevant code snippets using natural language. The 'query' parameter should describe the functionality you're looking for." \
+    -- uvx mcp-server-qdrant
+    ```
+
+2. Verify the server was added:
+
+    ```shell
+    claude mcp list
+    ```
+
+#### Using Semantic Code Search in Claude Code
+
+Tool descriptions, specified in `TOOL_STORE_DESCRIPTION` and `TOOL_FIND_DESCRIPTION`, guide Claude Code on how to use
+the MCP server. The ones provided above are examples and may need to be customized for your specific use case. However,
+Claude Code should be already able to:
+
+1. Use the `qdrant-store` tool to store code snippets with descriptions.
+2. Use the `qdrant-find` tool to search for relevant code snippets using natural language.
+
 ## Contributing
 
 If you have suggestions for how mcp-server-qdrant could be improved, or want to report a bug, open an issue!
