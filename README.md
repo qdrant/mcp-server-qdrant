@@ -1,4 +1,5 @@
 # mcp-server-qdrant: A Qdrant MCP server
+
 [![smithery badge](https://smithery.ai/badge/mcp-server-qdrant)](https://smithery.ai/protocol/mcp-server-qdrant)
 
 > The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables
@@ -12,7 +13,7 @@ This repository is an example of how to create a MCP server for [Qdrant](https:/
 
 ## Overview
 
-A basic Model Context Protocol server for keeping and retrieving memories in the Qdrant vector search engine.
+An official Model Context Protocol server for keeping and retrieving memories in the Qdrant vector search engine.
 It acts as a semantic memory layer on top of the Qdrant database.
 
 ## Components
