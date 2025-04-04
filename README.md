@@ -149,8 +149,184 @@ For the time being, only [FastEmbed](https://qdrant.github.io/fastembed/) models
 ## Support for other tools
 
 This MCP server can be used with any MCP-compatible client. For example, you can use it with
-[Cursor](https://docs.cursor.com/context/model-context-protocol), which provides built-in support for the Model Context
+[Cursor](https://docs.cursor.com/context/model-context-protocol) and [VS Code](https://code.visualstudio.com/docs), which provide built-in support for the Model Context
 Protocol.
+
+### Using with VS Code
+
+For one-click installation, click one of the install buttons below:
+
+[![Install with UVX in VS Code](https://img.shields.io/badge/VS_Code-UVX-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=qdrant&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22mcp-server-qdrant%22%5D%2C%22env%22%3A%7B%22QDRANT_URL%22%3A%22%24%7Binput%3AqdrantUrl%7D%22%2C%22QDRANT_API_KEY%22%3A%22%24%7Binput%3AqdrantApiKey%7D%22%2C%22COLLECTION_NAME%22%3A%22%24%7Binput%3AcollectionName%7D%22%7D%7D&inputs=%5B%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22qdrantUrl%22%2C%22description%22%3A%22Qdrant+URL%22%7D%2C%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22qdrantApiKey%22%2C%22description%22%3A%22Qdrant+API+Key%22%2C%22password%22%3Atrue%7D%2C%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22collectionName%22%2C%22description%22%3A%22Collection+Name%22%7D%5D) [![Install with UVX in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-UVX-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=qdrant&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22mcp-server-qdrant%22%5D%2C%22env%22%3A%7B%22QDRANT_URL%22%3A%22%24%7Binput%3AqdrantUrl%7D%22%2C%22QDRANT_API_KEY%22%3A%22%24%7Binput%3AqdrantApiKey%7D%22%2C%22COLLECTION_NAME%22%3A%22%24%7Binput%3AcollectionName%7D%22%7D%7D&inputs=%5B%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22qdrantUrl%22%2C%22description%22%3A%22Qdrant+URL%22%7D%2C%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22qdrantApiKey%22%2C%22description%22%3A%22Qdrant+API+Key%22%2C%22password%22%3Atrue%7D%2C%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22collectionName%22%2C%22description%22%3A%22Collection+Name%22%7D%5D&quality=insiders)
+
+[![Install with Docker in VS Code](https://img.shields.io/badge/VS_Code-Docker-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=qdrant&config=%7B%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-p%22%2C%228000%3A8000%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22QDRANT_URL%22%2C%22-e%22%2C%22QDRANT_API_KEY%22%2C%22-e%22%2C%22COLLECTION_NAME%22%2C%22mcp-server-qdrant%22%5D%2C%22env%22%3A%7B%22QDRANT_URL%22%3A%22%24%7Binput%3AqdrantUrl%7D%22%2C%22QDRANT_API_KEY%22%3A%22%24%7Binput%3AqdrantApiKey%7D%22%2C%22COLLECTION_NAME%22%3A%22%24%7Binput%3AcollectionName%7D%22%7D%7D&inputs=%5B%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22qdrantUrl%22%2C%22description%22%3A%22Qdrant+URL%22%7D%2C%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22qdrantApiKey%22%2C%22description%22%3A%22Qdrant+API+Key%22%2C%22password%22%3Atrue%7D%2C%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22collectionName%22%2C%22description%22%3A%22Collection+Name%22%7D%5D) [![Install with Docker in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Docker-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=qdrant&config=%7B%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-p%22%2C%228000%3A8000%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22QDRANT_URL%22%2C%22-e%22%2C%22QDRANT_API_KEY%22%2C%22-e%22%2C%22COLLECTION_NAME%22%2C%22mcp-server-qdrant%22%5D%2C%22env%22%3A%7B%22QDRANT_URL%22%3A%22%24%7Binput%3AqdrantUrl%7D%22%2C%22QDRANT_API_KEY%22%3A%22%24%7Binput%3AqdrantApiKey%7D%22%2C%22COLLECTION_NAME%22%3A%22%24%7Binput%3AcollectionName%7D%22%7D%7D&inputs=%5B%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22qdrantUrl%22%2C%22description%22%3A%22Qdrant+URL%22%7D%2C%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22qdrantApiKey%22%2C%22description%22%3A%22Qdrant+API+Key%22%2C%22password%22%3Atrue%7D%2C%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22collectionName%22%2C%22description%22%3A%22Collection+Name%22%7D%5D&quality=insiders)
+
+#### Manual Installation
+
+Add the following JSON block to your User Settings (JSON) file in VS Code. You can do this by pressing `Ctrl + Shift + P` and typing `Preferences: Open User Settings (JSON)`.
+
+```json
+{
+  "mcp": {
+    "inputs": [
+      {
+        "type": "promptString",
+        "id": "qdrantUrl",
+        "description": "Qdrant URL"
+      },
+      {
+        "type": "promptString",
+        "id": "qdrantApiKey",
+        "description": "Qdrant API Key",
+        "password": true
+      },
+      {
+        "type": "promptString",
+        "id": "collectionName",
+        "description": "Collection Name"
+      }
+    ],
+    "servers": {
+      "qdrant": {
+        "command": "uvx",
+        "args": ["mcp-server-qdrant"],
+        "env": {
+          "QDRANT_URL": "${input:qdrantUrl}",
+          "QDRANT_API_KEY": "${input:qdrantApiKey}",
+          "COLLECTION_NAME": "${input:collectionName}"
+        }
+      }
+    }
+  }
+}
+```
+
+Or if you prefer using Docker, add this configuration instead:
+
+```json
+{
+  "mcp": {
+    "inputs": [
+      {
+        "type": "promptString",
+        "id": "qdrantUrl",
+        "description": "Qdrant URL"
+      },
+      {
+        "type": "promptString",
+        "id": "qdrantApiKey",
+        "description": "Qdrant API Key",
+        "password": true
+      },
+      {
+        "type": "promptString",
+        "id": "collectionName",
+        "description": "Collection Name"
+      }
+    ],
+    "servers": {
+      "qdrant": {
+        "command": "docker",
+        "args": [
+          "run",
+          "-p", "8000:8000",
+          "-i",
+          "--rm",
+          "-e", "QDRANT_URL",
+          "-e", "QDRANT_API_KEY",
+          "-e", "COLLECTION_NAME",
+          "mcp-server-qdrant"
+        ],
+        "env": {
+          "QDRANT_URL": "${input:qdrantUrl}",
+          "QDRANT_API_KEY": "${input:qdrantApiKey}",
+          "COLLECTION_NAME": "${input:collectionName}"
+        }
+      }
+    }
+  }
+}
+```
+
+Alternatively, you can create a `.vscode/mcp.json` file in your workspace with the following content:
+
+```json
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "qdrantUrl",
+      "description": "Qdrant URL"
+    },
+    {
+      "type": "promptString",
+      "id": "qdrantApiKey",
+      "description": "Qdrant API Key",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "collectionName",
+      "description": "Collection Name"
+    }
+  ],
+  "servers": {
+    "qdrant": {
+      "command": "uvx",
+      "args": ["mcp-server-qdrant"],
+      "env": {
+        "QDRANT_URL": "${input:qdrantUrl}",
+        "QDRANT_API_KEY": "${input:qdrantApiKey}",
+        "COLLECTION_NAME": "${input:collectionName}"
+      }
+    }
+  }
+}
+```
+
+For workspace configuration with Docker, use this in `.vscode/mcp.json`:
+
+```json
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "qdrantUrl",
+      "description": "Qdrant URL"
+    },
+    {
+      "type": "promptString",
+      "id": "qdrantApiKey",
+      "description": "Qdrant API Key",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "collectionName",
+      "description": "Collection Name"
+    }
+  ],
+  "servers": {
+    "qdrant": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-p", "8000:8000",
+        "-i",
+        "--rm",
+        "-e", "QDRANT_URL",
+        "-e", "QDRANT_API_KEY",
+        "-e", "COLLECTION_NAME",
+        "mcp-server-qdrant"
+      ],
+      "env": {
+        "QDRANT_URL": "${input:qdrantUrl}",
+        "QDRANT_API_KEY": "${input:qdrantApiKey}",
+        "COLLECTION_NAME": "${input:collectionName}"
+      }
+    }
+  }
+}
+```
 
 ### Using with Cursor/Windsurf
 
