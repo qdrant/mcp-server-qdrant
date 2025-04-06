@@ -8,8 +8,11 @@ from mcp.server.fastmcp import Context, FastMCP
 
 from mcp_server_qdrant.embeddings.factory import create_embedding_provider
 from mcp_server_qdrant.qdrant import Entry, Metadata, QdrantConnector
-from mcp_server_qdrant.settings import (EmbeddingProviderSettings,
-                                        QdrantSettings, ToolSettings)
+from mcp_server_qdrant.settings import (
+    EmbeddingProviderSettings,
+    QdrantSettings,
+    ToolSettings,
+)
 
 logger = logging.getLogger(__name__)
 

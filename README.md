@@ -3,7 +3,7 @@
 [![smithery badge](https://smithery.ai/badge/mcp-server-qdrant)](https://smithery.ai/protocol/mcp-server-qdrant)
 
 > The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables
-> seamless integration between LLM applications and external data sources and tools. Whether you’re building an
+> seamless integration between LLM applications and external data sources and tools. Whether you're building an
 > AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to
 > connect LLMs with the context they need.
 
