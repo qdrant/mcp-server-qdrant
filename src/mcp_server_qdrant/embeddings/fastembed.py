@@ -2,7 +2,7 @@ import asyncio
 from typing import List
 
 from fastembed import TextEmbedding
-
+from fastembed.common.model_description import DenseModelDescription
 from mcp_server_qdrant.embeddings.base import EmbeddingProvider
 
 
@@ -41,3 +41,8 @@ class FastEmbedProvider(EmbeddingProvider):
         """
         model_name = self.embedding_model.model_name.split("/")[-1].lower()
         return f"fast-{model_name}"
+
+    def get_vector_size(self) -> int:
+        """Get the size of the vector for the Qdrant collection."""
+        model_description: DenseModelDescription = self.embedding_model._get_model_description(self.model_name)
+        return model_description.dim

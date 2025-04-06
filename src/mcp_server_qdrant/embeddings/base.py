@@ -19,3 +19,8 @@ class EmbeddingProvider(ABC):
     def get_vector_name(self) -> str:
         """Get the name of the vector for the Qdrant collection."""
         pass
+
+    @abstractmethod
+    def get_vector_size(self) -> int:
+        """Get the size of the vector for the Qdrant collection."""
+        pass
