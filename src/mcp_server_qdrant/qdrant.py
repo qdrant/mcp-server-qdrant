@@ -125,7 +125,7 @@ class QdrantConnector:
         collection_exists = await self._client.collection_exists(collection_name)
         if not collection_exists:
             # Create the collection with the appropriate vector size
-            vector_size = self._embedding_provider.get_vector_size()            
+            vector_size = self._embedding_provider.get_vector_size()
 
             # Use the vector name as defined in the embedding provider
             vector_name = self._embedding_provider.get_vector_name()

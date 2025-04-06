@@ -97,10 +97,7 @@ async def store(
     return f"Remembered: {information}"
 
 
-@mcp.tool(
-    name="qdrant-find",
-    description=tool_settings.tool_find_description
-)
+@mcp.tool(name="qdrant-find", description=tool_settings.tool_find_description)
 async def find(
     ctx: Context,
     query: str,

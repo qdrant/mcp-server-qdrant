@@ -44,5 +44,7 @@ class FastEmbedProvider(EmbeddingProvider):
 
     def get_vector_size(self) -> int:
         """Get the size of the vector for the Qdrant collection."""
-        model_description: DenseModelDescription = self.embedding_model._get_model_description(self.model_name)
+        model_description: DenseModelDescription = (
+            self.embedding_model._get_model_description(self.model_name)
+        )
         return model_description.dim
