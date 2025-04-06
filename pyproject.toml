@@ -18,11 +18,12 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 dev-dependencies = [
+    "isort>=6.0.1",
     "pre-commit>=4.1.0",
     "pyright>=1.1.389",
     "pytest>=8.3.3",
     "pytest-asyncio>=0.23.0",
-    "ruff>=0.8.0"
+    "ruff>=0.8.0",
 ]
 
 [project.scripts]

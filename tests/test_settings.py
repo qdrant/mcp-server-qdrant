@@ -4,13 +4,10 @@ from unittest.mock import patch
 import pytest
 
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
-from mcp_server_qdrant.settings import (
-    DEFAULT_TOOL_FIND_DESCRIPTION,
-    DEFAULT_TOOL_STORE_DESCRIPTION,
-    EmbeddingProviderSettings,
-    QdrantSettings,
-    ToolSettings,
-)
+from mcp_server_qdrant.settings import (DEFAULT_TOOL_FIND_DESCRIPTION,
+                                        DEFAULT_TOOL_STORE_DESCRIPTION,
+                                        EmbeddingProviderSettings,
+                                        QdrantSettings, ToolSettings)
 
 
 class TestQdrantSettings:
