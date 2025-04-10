@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List
+from typing import Any, List
 
 from mcp.server.fastmcp import Context, FastMCP
 
@@ -28,6 +28,8 @@ class QdrantMCPServer(FastMCP):
         qdrant_settings: QdrantSettings,
         embedding_provider_settings: EmbeddingProviderSettings,
         name: str = "mcp-server-qdrant",
+        instructions: str | None = None,
+        **settings: Any,
     ):
         self.tool_settings = tool_settings
         self.qdrant_settings = qdrant_settings
@@ -42,7 +44,7 @@ class QdrantMCPServer(FastMCP):
             qdrant_settings.local_path,
         )
 
-        super().__init__(name=name)
+        super().__init__(name=name, instructions=instructions, **settings)
 
         self.setup_tools()
 
