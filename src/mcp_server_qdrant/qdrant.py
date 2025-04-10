@@ -26,7 +26,8 @@ class QdrantConnector:
     Encapsulates the connection to a Qdrant server and all the methods to interact with it.
     :param qdrant_url: The URL of the Qdrant server.
     :param qdrant_api_key: The API key to use for the Qdrant server.
-    :param collection_name: The name of the collection to use.
+    :param collection_name: The name of the default collection to use. If not provided, each tool will require
+                            the collection name to be provided.
     :param embedding_provider: The embedding provider to use.
     :param qdrant_local_path: The path to the storage directory for the Qdrant client, if local mode is used.
     """
@@ -35,7 +36,7 @@ class QdrantConnector:
         self,
         qdrant_url: Optional[str],
         qdrant_api_key: Optional[str],
-        collection_name: str,
+        collection_name: Optional[str],
         embedding_provider: EmbeddingProvider,
         qdrant_local_path: Optional[str] = None,
     ):
@@ -63,6 +64,7 @@ class QdrantConnector:
                                 the default collection is used.
         """
         collection_name = collection_name or self._default_collection_name
+        assert collection_name is not None
         await self._ensure_collection_exists(collection_name)
 
         # Embed the document

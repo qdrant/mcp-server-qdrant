@@ -54,6 +54,10 @@ class QdrantMCPServer(FastMCP):
         return f"<entry><content>{entry.content}</content><metadata>{entry_metadata}</metadata></entry>"
 
     def setup_tools(self):
+        """
+        Register the tools in the server.
+        """
+
         async def store(
             ctx: Context,
             information: str,
@@ -61,7 +65,7 @@ class QdrantMCPServer(FastMCP):
             # The `metadata` parameter is defined as non-optional, but it can be None.
             # If we set it to be optional, some of the MCP clients, like Cursor, cannot
             # handle the optional parameter correctly.
-            metadata: Metadata = None,
+            metadata: Metadata = None,  # type: ignore
         ) -> str:
             """
             Store some information in Qdrant.
@@ -84,8 +88,9 @@ class QdrantMCPServer(FastMCP):
         async def store_with_default_collection(
             ctx: Context,
             information: str,
-            metadata: Metadata = None,
+            metadata: Metadata = None,  # type: ignore
         ) -> str:
+            assert self.qdrant_settings.collection_name is not None
             return await store(
                 ctx, information, self.qdrant_settings.collection_name, metadata
             )
@@ -127,6 +132,7 @@ class QdrantMCPServer(FastMCP):
             ctx: Context,
             query: str,
         ) -> List[str]:
+            assert self.qdrant_settings.collection_name is not None
             return await find(ctx, query, self.qdrant_settings.collection_name)
 
         # Register the tools depending on the configuration

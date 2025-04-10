@@ -27,3 +27,9 @@ repos:
       - id: isort
         name: "Sort Imports"
         args: [ "--profile", "black" ]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.9.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [tokenize-rt==3.2.0]

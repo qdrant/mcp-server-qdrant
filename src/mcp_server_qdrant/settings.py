@@ -59,13 +59,5 @@ class QdrantSettings(BaseSettings):
     local_path: Optional[str] = Field(
         default=None, validation_alias="QDRANT_LOCAL_PATH"
     )
-    search_limit: Optional[int] = Field(
-        default=None, validation_alias="QDRANT_SEARCH_LIMIT"
-    )
+    search_limit: int = Field(default=10, validation_alias="QDRANT_SEARCH_LIMIT")
     read_only: bool = Field(default=False, validation_alias="QDRANT_READ_ONLY")
-
-    def get_qdrant_location(self) -> str:
-        """
-        Get the Qdrant location, either the URL or the local path.
-        """
-        return self.location or self.local_path
