@@ -87,7 +87,7 @@ class QdrantMCPServer(FastMCP):
             metadata: Metadata = None,
         ) -> str:
             return await store(
-                ctx, information, metadata, self.qdrant_settings.collection_name
+                ctx, information, self.qdrant_settings.collection_name, metadata
             )
 
         async def find(
@@ -101,7 +101,6 @@ class QdrantMCPServer(FastMCP):
             :param query: The query to use for the search.
             :param collection_name: The name of the collection to search in, optional. If not provided,
                                     the default collection is used.
-            :param limit: The maximum number of entries to return, optional. Default is 10.
             :return: A list of entries found.
             """
             await ctx.debug(f"Finding results for query {query}")
