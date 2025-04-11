@@ -22,3 +22,7 @@ def main():
     from mcp_server_qdrant.server import mcp
 
     mcp.run(transport=args.transport)
+
+
+if __name__ == "__main__":
+    main()
