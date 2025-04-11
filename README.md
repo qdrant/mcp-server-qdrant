@@ -157,6 +157,103 @@ This MCP server can be used with any MCP-compatible client. For example, you can
 [Cursor](https://docs.cursor.com/context/model-context-protocol) and [VS Code](https://code.visualstudio.com/docs), which provide built-in support for the Model Context
 Protocol.
 
+### Using with Cursor/Windsurf
+
+You can configure this MCP server to work as a code search tool for Cursor or Windsurf by customizing the tool
+descriptions:
+
+```bash
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="code-snippets" \
+TOOL_STORE_DESCRIPTION="Store reusable code snippets for later retrieval. \
+The 'information' parameter should contain a natural language description of what the code does, \
+while the actual code should be included in the 'metadata' parameter as a 'code' property. \
+The value of 'metadata' is a Python dictionary with strings as keys. \
+Use this whenever you generate some code snippet." \
+TOOL_FIND_DESCRIPTION="Search for relevant code snippets based on natural language descriptions. \
+The 'query' parameter should describe what you're looking for, \
+and the tool will return the most relevant code snippets. \
+Use this when you need to find existing code snippets for reuse or reference." \
+uvx mcp-server-qdrant --transport sse # Enable SSE transport
+```
+
+In Cursor/Windsurf, you can then configure the MCP server in your settings by pointing to this running server using
+SSE transport protocol. The description on how to add an MCP server to Cursor can be found in the [Cursor
+documentation](https://docs.cursor.com/context/model-context-protocol#adding-an-mcp-server-to-cursor). If you are
+running Cursor/Windsurf locally, you can use the following URL:
+
+```
+http://localhost:8000/sse
+```
+
+> [!TIP]
+> We suggest SSE transport as a preferred way to connect Cursor/Windsurf to the MCP server, as it can support remote
+> connections. That makes it easy to share the server with your team or use it in a cloud environment.
+
+This configuration transforms the Qdrant MCP server into a specialized code search tool that can:
+
+1. Store code snippets, documentation, and implementation details
+2. Retrieve relevant code examples based on semantic search
+3. Help developers find specific implementations or usage patterns
+
+You can populate the database by storing natural language descriptions of code snippets (in the `information` parameter)
+along with the actual code (in the `metadata.code` property), and then search for them using natural language queries
+that describe what you're looking for.
+
+> [!NOTE]
+> The tool descriptions provided above are examples and may need to be customized for your specific use case. Consider
+> adjusting the descriptions to better match your team's workflow and the specific types of code snippets you want to
+> store and retrieve.
+
+**If you have successfully installed the `mcp-server-qdrant`, but still can't get it to work with Cursor, please
+consider creating the [Cursor rules](https://docs.cursor.com/context/rules-for-ai) so the MCP tools are always used when
+the agent produces a new code snippet.** You can restrict the rules to only work for certain file types, to avoid using
+the MCP server for the documentation or other types of content.
+
+### Using with Claude Code
+
+You can enhance Claude Code's capabilities by connecting it to this MCP server, enabling semantic search over your
+existing codebase.
+
+#### Setting up mcp-server-qdrant
+
+1. Add the MCP server to Claude Code:
+
+    ```shell
+    # Add mcp-server-qdrant configured for code search
+    claude mcp add code-search \
+    -e QDRANT_URL="http://localhost:6333" \
+    -e COLLECTION_NAME="code-repository" \
+    -e EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2" \
+    -e TOOL_STORE_DESCRIPTION="Store code snippets with descriptions. The 'information' parameter should contain a natural language description of what the code does, while the actual code should be included in the 'metadata' parameter as a 'code' property." \
+    -e TOOL_FIND_DESCRIPTION="Search for relevant code snippets using natural language. The 'query' parameter should describe the functionality you're looking for." \
+    -- uvx mcp-server-qdrant
+    ```
+
+2. Verify the server was added:
+
+    ```shell
+    claude mcp list
+    ```
+
+#### Using Semantic Code Search in Claude Code
+
+Tool descriptions, specified in `TOOL_STORE_DESCRIPTION` and `TOOL_FIND_DESCRIPTION`, guide Claude Code on how to use
+the MCP server. The ones provided above are examples and may need to be customized for your specific use case. However,
+Claude Code should be already able to:
+
+1. Use the `qdrant-store` tool to store code snippets with descriptions.
+2. Use the `qdrant-find` tool to search for relevant code snippets using natural language.
+
+### Run MCP server in Development Mode
+
+The MCP server can be run in development mode using the `mcp dev` command. This will start the server and open the MCP
+inspector in your browser.
+
+```shell
+COLLECTION_NAME=mcp-dev mcp dev src/mcp_server_qdrant/server.py
+```
+
 ### Using with VS Code
 
 For one-click installation, click one of the install buttons below:
@@ -331,103 +428,6 @@ For workspace configuration with Docker, use this in `.vscode/mcp.json`:
     }
   }
 }
-```
-
-### Using with Cursor/Windsurf
-
-You can configure this MCP server to work as a code search tool for Cursor or Windsurf by customizing the tool
-descriptions:
-
-```bash
-QDRANT_URL="http://localhost:6333" \
-COLLECTION_NAME="code-snippets" \
-TOOL_STORE_DESCRIPTION="Store reusable code snippets for later retrieval. \
-The 'information' parameter should contain a natural language description of what the code does, \
-while the actual code should be included in the 'metadata' parameter as a 'code' property. \
-The value of 'metadata' is a Python dictionary with strings as keys. \
-Use this whenever you generate some code snippet." \
-TOOL_FIND_DESCRIPTION="Search for relevant code snippets based on natural language descriptions. \
-The 'query' parameter should describe what you're looking for, \
-and the tool will return the most relevant code snippets. \
-Use this when you need to find existing code snippets for reuse or reference." \
-uvx mcp-server-qdrant --transport sse # Enable SSE transport
-```
-
-In Cursor/Windsurf, you can then configure the MCP server in your settings by pointing to this running server using
-SSE transport protocol. The description on how to add an MCP server to Cursor can be found in the [Cursor
-documentation](https://docs.cursor.com/context/model-context-protocol#adding-an-mcp-server-to-cursor). If you are
-running Cursor/Windsurf locally, you can use the following URL:
-
-```
-http://localhost:8000/sse
-```
-
-> [!TIP]
-> We suggest SSE transport as a preferred way to connect Cursor/Windsurf to the MCP server, as it can support remote
-> connections. That makes it easy to share the server with your team or use it in a cloud environment.
-
-This configuration transforms the Qdrant MCP server into a specialized code search tool that can:
-
-1. Store code snippets, documentation, and implementation details
-2. Retrieve relevant code examples based on semantic search
-3. Help developers find specific implementations or usage patterns
-
-You can populate the database by storing natural language descriptions of code snippets (in the `information` parameter)
-along with the actual code (in the `metadata.code` property), and then search for them using natural language queries
-that describe what you're looking for.
-
-> [!NOTE]
-> The tool descriptions provided above are examples and may need to be customized for your specific use case. Consider
-> adjusting the descriptions to better match your team's workflow and the specific types of code snippets you want to
-> store and retrieve.
-
-**If you have successfully installed the `mcp-server-qdrant`, but still can't get it to work with Cursor, please
-consider creating the [Cursor rules](https://docs.cursor.com/context/rules-for-ai) so the MCP tools are always used when
-the agent produces a new code snippet.** You can restrict the rules to only work for certain file types, to avoid using
-the MCP server for the documentation or other types of content.
-
-### Using with Claude Code
-
-You can enhance Claude Code's capabilities by connecting it to this MCP server, enabling semantic search over your
-existing codebase.
-
-#### Setting up mcp-server-qdrant
-
-1. Add the MCP server to Claude Code:
-
-    ```shell
-    # Add mcp-server-qdrant configured for code search
-    claude mcp add code-search \
-    -e QDRANT_URL="http://localhost:6333" \
-    -e COLLECTION_NAME="code-repository" \
-    -e EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2" \
-    -e TOOL_STORE_DESCRIPTION="Store code snippets with descriptions. The 'information' parameter should contain a natural language description of what the code does, while the actual code should be included in the 'metadata' parameter as a 'code' property." \
-    -e TOOL_FIND_DESCRIPTION="Search for relevant code snippets using natural language. The 'query' parameter should describe the functionality you're looking for." \
-    -- uvx mcp-server-qdrant
-    ```
-
-2. Verify the server was added:
-
-    ```shell
-    claude mcp list
-    ```
-
-#### Using Semantic Code Search in Claude Code
-
-Tool descriptions, specified in `TOOL_STORE_DESCRIPTION` and `TOOL_FIND_DESCRIPTION`, guide Claude Code on how to use
-the MCP server. The ones provided above are examples and may need to be customized for your specific use case. However,
-Claude Code should be already able to:
-
-1. Use the `qdrant-store` tool to store code snippets with descriptions.
-2. Use the `qdrant-find` tool to search for relevant code snippets using natural language.
-
-### Run MCP server in Development Mode
-
-The MCP server can be run in development mode using the `mcp dev` command. This will start the server and open the MCP
-inspector in your browser.
-
-```shell
-COLLECTION_NAME=mcp-dev mcp dev src/mcp_server_qdrant/server.py
 ```
 
 ## Contributing
