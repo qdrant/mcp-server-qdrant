@@ -44,6 +44,10 @@ class EmbeddingProviderSettings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
     )
+    api_key: Optional[str] = Field(
+        default=None,
+        validation_alias="OPENAI_API_KEY",
+    )
 
 
 class QdrantSettings(BaseSettings):
