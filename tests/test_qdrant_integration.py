@@ -1,18 +1,19 @@
 import uuid
 
 import pytest
+import pytest_asyncio
 
 from mcp_server_qdrant.embeddings.fastembed import FastEmbedProvider
 from mcp_server_qdrant.qdrant import Entry, QdrantConnector
 
 
 @pytest.fixture
-async def embedding_provider():
+def embedding_provider():
     """Fixture to provide a FastEmbed embedding provider."""
     return FastEmbedProvider(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def qdrant_connector(embedding_provider):
     """Fixture to provide a QdrantConnector with in-memory Qdrant client."""
     # Use a random collection name to avoid conflicts between tests

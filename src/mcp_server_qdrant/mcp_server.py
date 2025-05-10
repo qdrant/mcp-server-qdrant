@@ -116,11 +116,21 @@ class QdrantMCPServer(FastMCP):
                     f"Overriding the collection name with {collection_name}"
                 )
 
-            entries = await self.qdrant_connector.search(
-                query,
-                collection_name=collection_name,
-                limit=self.qdrant_settings.search_limit,
-            )
+            entries = [] # Initialize entries
+            try:
+                entries = await self.qdrant_connector.search(
+                    query,
+                    collection_name=collection_name,
+                    limit=self.qdrant_settings.search_limit,
+                )
+            except Exception as e:
+                import traceback
+                error_message = f"Error in qdrant_connector.search: {e}\\n{traceback.format_exc()}"
+                await ctx.debug(error_message)
+                print(error_message) # Also print to server's stdout/stderr
+                # Re-raise or return an error message appropriate for the tool's expected output
+                return [f"Tool execution failed: {e}"]
+
             if not entries:
                 return [f"No information found for the query '{query}'"]
             content = [

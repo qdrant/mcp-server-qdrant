@@ -51,7 +51,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         """
         Return the name of the vector for the Qdrant collection.
         """
-        return f"openai-{self.model_name.replace('/', '-')}"
+        return 
 
     def get_vector_size(self) -> int:
         """Get the size of the vector for the Qdrant collection."""

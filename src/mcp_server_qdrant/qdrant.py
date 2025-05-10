@@ -117,13 +117,20 @@ class QdrantConnector:
             limit=limit,
         )
 
-        return [
-            Entry(
-                content=result.payload["document"],
-                metadata=result.payload.get("metadata"),
-            )
-            for result in search_results.points
-        ]
+        entries = []
+        for result in search_results.points:
+            if result.payload:
+                # Try to get content from "document" key, then "content" key
+                doc_content = result.payload.get("document")
+                if doc_content is None:
+                    doc_content = result.payload.get("content", "Error: Neither 'document' nor 'content' key found in payload")
+                
+                entry_metadata = result.payload.get("metadata")
+                entries.append(Entry(content=doc_content, metadata=entry_metadata))
+            else:
+                # Optionally log points with no payload or handle as an error
+                entries.append(Entry(content="Error: Point has no payload", metadata=None))
+        return entries
 
     async def _ensure_collection_exists(self, collection_name: str):
         """
