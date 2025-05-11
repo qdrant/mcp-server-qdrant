@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: hf-xet
+Version: 1.1.0
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: pytest ; extra == 'tests'
+Provides-Extra: tests
+License: Apache-2.0
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# Development Notes
+
+* `pip install maturin`
+* from this directory: `maturin develop`
+

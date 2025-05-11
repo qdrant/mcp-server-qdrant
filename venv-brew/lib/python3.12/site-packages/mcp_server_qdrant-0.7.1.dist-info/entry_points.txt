@@ -1,0 +1,2 @@
+[console_scripts]
+mcp-server-qdrant = mcp_server_qdrant.main:main

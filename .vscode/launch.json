@@ -1,0 +1,27 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run MCP Inspector (mcp-server-qdrant)",
+            "type": "python", // Or "node" if mcp dev is a node script, but likely python if mcp[cli] is a python package
+            "request": "launch",
+            "program": "/Users/rick/repository/github/mcp-servers/mcp-server-qdrant/venv-brew/bin/mcp", // Path to the mcp executable in your venv
+            "args": [
+                "dev",
+                "mcp_server_qdrant.server"
+            ],
+            "env": {
+                "QDRANT_URL": "http://localhost:6333",
+                "COLLECTION_NAME": "meme_outlines",
+                "EMBEDDING_PROVIDER": "openai",
+                "EMBEDDING_MODEL": "text-embedding-3-small",
+                "OPENAI_API_KEY": "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",
+                "LOG_LEVEL": "DEBUG"
+                // You might need to add PYTHONPATH if 'src' isn't automatically found
+                // "PYTHONPATH": "${workspaceFolder}/mcp-server-qdrant/src"
+            },
+            "cwd": "${workspaceFolder}/mcp-server-qdrant", // <-- THIS IS THE KEY!
+            "console": "integratedTerminal" // Or "internalConsole"
+        }
+    ]
+}

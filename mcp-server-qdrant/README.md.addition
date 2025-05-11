@@ -1,0 +1,92 @@
+## OpenAI Embedding Models
+
+As of version 0.8.0, the server now supports OpenAI embedding models through the OpenAI API. You can use models such as `text-embedding-3-small`, `text-embedding-3-large`, and `text-embedding-ada-002`.
+
+### Configuration
+
+To use OpenAI embedding models, set the following environment variables:
+
+| Name                 | Description                                         | Example Value                 |
+|----------------------|-----------------------------------------------------|-------------------------------|
+| `EMBEDDING_PROVIDER` | The embedding provider to use                       | `openai`                      |
+| `EMBEDDING_MODEL`    | The OpenAI model to use for embeddings              | `text-embedding-3-small`      |
+| `OPENAI_API_KEY`     | Your OpenAI API key                                 | `sk-...`                      |
+
+### Example Usage
+
+```bash
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+EMBEDDING_PROVIDER="openai" \
+EMBEDDING_MODEL="text-embedding-3-small" \
+OPENAI_API_KEY="your-openai-api-key" \
+uvx mcp-server-qdrant
+```
+
+### Supported Models
+
+| Model Name             | Dimensions | Best For                                      |
+|------------------------|------------|-----------------------------------------------|
+| text-embedding-3-small | 1536       | Most use cases                                |
+| text-embedding-3-large | 3072       | Highest accuracy but more expensive           |
+| text-embedding-ada-002 | 1536       | Legacy model (consider using newer ones)      |
+
+### Cost Considerations
+
+Unlike the built-in FastEmbed models, OpenAI models require API calls that have associated costs. Please refer to [OpenAI's pricing page](https://openai.com/pricing) for the current rates.
+
+## Running with Claude Desktop: Final Integration Notes
+
+### 1. Use a Python Virtual Environment
+- Create and activate a Python venv (e.g., `venv-brew`).
+- Install the server in editable mode: `uv pip install -e .` or `pip install -e .`
+
+### 2. Claude Desktop Configuration
+- In your `claude_desktop_config.json`, set the `command` to the full path of your venv's Python binary, e.g.:
+  ```json
+  "command": "/Users/username/path/to/venv/bin/python",
+  "args": ["-m", "mcp_server_qdrant.main"],
+  "cwd": "/Users/username/path/to/mcp-server-qdrant"
+  ```
+- Set all required environment variables in the `env` block (see above for OpenAI example).
+
+### 3. MCP Protocol Requirements
+- **Do not print to stdout** except for valid JSON-RPC protocol messages.
+- All debug or trace output must go to stderr (e.g., `print(..., file=sys.stderr)`).
+
+### 4. Debugging Integration
+- If the server exits unexpectedly, add trace prints to stderr at key startup points (module load, after imports, before/after settings, before/after server start).
+- Run the exact command from your terminal to verify the environment and Python path.
+- If you see `ModuleNotFoundError`, ensure your venv is used and the package is installed in editable mode.
+- If you see protocol errors, check for stray stdout prints.
+
+### 5. Testing
+- Use MCP Inspector and unit tests for logic and protocol validation.
+- Use Claude Desktop for final integration testing, as it is stricter about protocol and environment.
+
+### 6. Example Working Claude Config
+```json
+"qdrant": {
+  "command": "/Users/username/path/to/venv/bin/python",
+  "args": ["-m", "mcp_server_qdrant.main"],
+  "cwd": "/Users/username/path/to/mcp-server-qdrant",
+  "env": {
+    "QDRANT_URL": "http://localhost:6333",
+    "COLLECTION_NAME": "meme_outlines",
+    "EMBEDDING_PROVIDER": "openai",
+    "EMBEDDING_MODEL": "text-embedding-3-small",
+    "OPENAI_API_KEY": "sk-..."
+  }
+}
+```
+
+### 7. Common Pitfalls
+- Using the wrong Python interpreter (not your venv)
+- Not installing the package in editable mode
+- Printing to stdout (breaks MCP protocol)
+- Missing environment variables
+- Not running from the correct working directory
+
+---
+
+**If you follow these steps, your mcp-server-qdrant will work reliably with Claude Desktop and other MCP clients.**
