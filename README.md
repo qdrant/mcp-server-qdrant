@@ -54,6 +54,22 @@ Note: You cannot provide both `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same t
 > [!IMPORTANT]
 > Command-line arguments are not supported anymore! Please use environment variables for all configuration.
 
+### FastMCP Environment Variables
+
+Since `mcp-server-qdrant` is based on FastMCP, it also supports all the FastMCP environment variables. The most
+important ones are listed below:
+
+| Environment Variable                  | Description                                               | Default Value |
+|---------------------------------------|-----------------------------------------------------------|---------------|
+| `FASTMCP_DEBUG`                       | Enable debug mode                                         | `false`       |
+| `FASTMCP_LOG_LEVEL`                   | Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) | `INFO`        |
+| `FASTMCP_HOST`                        | Host address to bind the server to                        | `0.0.0.0`     |
+| `FASTMCP_PORT`                        | Port to run the server on                                 | `8000`        |
+| `FASTMCP_WARN_ON_DUPLICATE_RESOURCES` | Show warnings for duplicate resources                     | `true`        |
+| `FASTMCP_WARN_ON_DUPLICATE_TOOLS`     | Show warnings for duplicate tools                         | `true`        |
+| `FASTMCP_WARN_ON_DUPLICATE_PROMPTS`   | Show warnings for duplicate prompts                       | `true`        |
+| `FASTMCP_DEPENDENCIES`                | List of dependencies to install in the server environment | `[]`          |
+
 ## Installation
 
 ### Using uvx
@@ -83,6 +99,16 @@ Supported transport protocols:
 - `sse`: Server-Sent Events transport, perfect for remote clients
 
 The default transport is `stdio` if not specified.
+
+When SSE transport is used, the server will listen on the specified port and wait for incoming connections. The default
+port is 8000, however it can be changed using the `FASTMCP_PORT` environment variable.
+
+```shell
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+FASTMCP_PORT=1234 \
+uvx mcp-server-qdrant --transport sse
+```
 
 ### Using Docker
 
