@@ -107,15 +107,27 @@ class QdrantConnector:
         # it should unlock usage of server-side inference.
 
         query_vector = await self._embedding_provider.embed_query(query)
-        vector_name = self._embedding_provider.get_vector_name()
-
+        
+        # Check if this is a legacy collection (single vector) or named vectors
+        is_legacy_collection = await self._is_legacy_collection(collection_name)
+        
         # Search in Qdrant
-        search_results = await self._client.query_points(
-            collection_name=collection_name,
-            query=query_vector,
-            using=vector_name,
-            limit=limit,
-        )
+        if is_legacy_collection:
+            # Legacy collections don't use named vectors
+            search_results = await self._client.query_points(
+                collection_name=collection_name,
+                query=query_vector,
+                limit=limit,
+            )
+        else:
+            # Modern collections use named vectors
+            vector_name = self._embedding_provider.get_vector_name()
+            search_results = await self._client.query_points(
+                collection_name=collection_name,
+                query=query_vector,
+                using=vector_name,
+                limit=limit,
+            )
 
         entries = []
         for result in search_results.points:
@@ -131,6 +143,40 @@ class QdrantConnector:
                 # Optionally log points with no payload or handle as an error
                 entries.append(Entry(content="Error: Point has no payload", metadata=None))
         return entries
+
+    async def _is_legacy_collection(self, collection_name: str) -> bool:
+        """
+        Check if a collection uses the legacy single vector format (pre-named vectors).
+        :param collection_name: The name of the collection to check.
+        :return: True if it's a legacy collection, False if it uses named vectors.
+        """
+        try:
+            collection_info = await self._client.get_collection(collection_name)
+            vectors_config = collection_info.config.params.vectors
+            
+            # Legacy collections have vectors config with 'size' and 'distance' directly
+            # Named vector collections have a dict of vector names
+            if hasattr(vectors_config, 'size') and hasattr(vectors_config, 'distance'):
+                return True
+            elif isinstance(vectors_config, dict):
+                # If it's a dict, check if any values have 'size' directly (legacy)
+                # or if all values are VectorParams objects (modern named vectors)
+                for key, value in vectors_config.items():
+                    if hasattr(value, 'size') and hasattr(value, 'distance'):
+                        # This is a VectorParams object, so modern named vectors
+                        return False
+                    elif isinstance(value, dict) and 'size' in value and 'distance' in value:
+                        # This looks like legacy format embedded in a dict
+                        return True
+                # If we have a dict but couldn't determine format, assume modern
+                return False
+            else:
+                # Unknown format, assume modern
+                return False
+        except Exception as e:
+            logger.warning(f"Could not determine collection format for {collection_name}: {e}")
+            # Default to legacy format for safety
+            return True
 
     async def _ensure_collection_exists(self, collection_name: str):
         """

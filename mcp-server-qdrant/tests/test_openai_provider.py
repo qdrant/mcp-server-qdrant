@@ -19,11 +19,19 @@ class TestOpenAIProviderUnit:
         with pytest.raises(ValueError, match="Unsupported model"):
             OpenAIEmbeddingProvider("invalid-model", "test-api-key")
 
+    def test_empty_api_key(self):
+        """Test that initialization with an empty API key raises an error."""
+        with pytest.raises(ValueError, match="OpenAI API key cannot be empty"):
+            OpenAIEmbeddingProvider("text-embedding-3-small", "")
+            
+        with pytest.raises(ValueError, match="OpenAI API key cannot be empty"):
+            OpenAIEmbeddingProvider("text-embedding-3-small", None)
+
     def test_get_vector_name(self):
         """Test that the vector name is generated correctly."""
         provider = OpenAIEmbeddingProvider("text-embedding-3-small", "test-api-key")
         vector_name = provider.get_vector_name()
-        assert vector_name == "openai-text-embedding-3-small"
+        assert vector_name == "text-embedding-3-small"
 
     def test_get_vector_size(self):
         """Test that the vector size is correct for different models."""

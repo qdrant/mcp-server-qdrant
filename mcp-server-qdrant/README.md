@@ -46,12 +46,38 @@ The configuration of the server is done using environment variables:
 | `QDRANT_API_KEY`         | API key for the Qdrant server                                       | None                                                              |
 | `COLLECTION_NAME`        | Name of the default collection to use.                              | None                                                              |
 | `QDRANT_LOCAL_PATH`      | Path to the local Qdrant database (alternative to `QDRANT_URL`)     | None                                                              |
-| `EMBEDDING_PROVIDER`     | Embedding provider to use (currently only "fastembed" is supported) | `fastembed`                                                       |
+| `EMBEDDING_PROVIDER`     | Embedding provider to use ("fastembed" or "openai")                 | `fastembed`                                                       |
+| `OPENAI_API_KEY`         | OpenAI API key (required when using OpenAI embedding provider)       | None                                                              |
 | `EMBEDDING_MODEL`        | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
 | `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 
 Note: You cannot provide both `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
+
+## OpenAI Embedding Support
+
+As of version 0.8.0, this server supports OpenAI embedding models through the OpenAI API. You can use models such as `text-embedding-3-small`, `text-embedding-3-large`, and `text-embedding-ada-002`.
+
+### Supported OpenAI Models
+
+| Model Name             | Dimensions | Best For                                      |
+|------------------------|------------|-----------------------------------------------|
+| text-embedding-3-small | 1536       | Most use cases, cost-effective                |
+| text-embedding-3-large | 3072       | Highest accuracy, more expensive              |
+| text-embedding-ada-002 | 1536       | Legacy model (consider using newer ones)     |
+
+### OpenAI Configuration Example
+
+```bash
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+EMBEDDING_PROVIDER="openai" \
+EMBEDDING_MODEL="text-embedding-3-small" \
+OPENAI_API_KEY="your-openai-api-key" \
+uvx mcp-server-qdrant
+```
+
+**Cost Considerations**: Unlike FastEmbed models that run locally, OpenAI models require API calls with associated costs. Please refer to [OpenAI's pricing page](https://openai.com/pricing) for current rates.
 
 > [!IMPORTANT]
 > Command-line arguments are not supported anymore! Please use environment variables for all configuration.
@@ -141,6 +167,25 @@ For local Qdrant mode:
       "QDRANT_LOCAL_PATH": "/path/to/qdrant/database",
       "COLLECTION_NAME": "your-collection-name",
       "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2"
+    }
+  }
+}
+```
+
+For OpenAI embeddings:
+
+```json
+{
+  "qdrant": {
+    "command": "uvx",
+    "args": ["mcp-server-qdrant"],
+    "env": {
+      "QDRANT_URL": "https://xyz-example.eu-central.aws.cloud.qdrant.io:6333",
+      "QDRANT_API_KEY": "your_qdrant_api_key",
+      "COLLECTION_NAME": "your-collection-name",
+      "EMBEDDING_PROVIDER": "openai",
+      "EMBEDDING_MODEL": "text-embedding-3-small",
+      "OPENAI_API_KEY": "your_openai_api_key"
     }
   }
 }
