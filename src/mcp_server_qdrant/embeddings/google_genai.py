@@ -27,7 +27,7 @@ class GoogleGenAIProvider(EmbeddingProvider):
         self.api_key = api_key
         self.project = project
         self.location = location
-        
+
         # Defer client initialization to when it's needed
         self._client = None
 
@@ -37,13 +37,11 @@ class GoogleGenAIProvider(EmbeddingProvider):
         if self._client is None:
             try:
                 from google import genai
-                
+
                 # Initialize the client based on the configuration
                 if self.use_vertex_ai and self.project and self.location:
                     self._client = genai.Client(
-                        vertexai=True,
-                        project=self.project,
-                        location=self.location
+                        vertexai=True, project=self.project, location=self.location
                     )
                 elif self.api_key:
                     self._client = genai.Client(api_key=self.api_key)
@@ -61,10 +59,10 @@ class GoogleGenAIProvider(EmbeddingProvider):
         """Embed a list of documents into vectors."""
         # Run in a thread pool since Google GenAI client may be synchronous
         loop = asyncio.get_event_loop()
-        
+
         def _embed_documents():
             from google.genai import types
-            
+
             embeddings = []
             for document in documents:
                 response = self.client.models.embed_content(
@@ -72,32 +70,32 @@ class GoogleGenAIProvider(EmbeddingProvider):
                     contents=document,
                     config=types.EmbedContentConfig(
                         task_type="RETRIEVAL_DOCUMENT",
-                        output_dimensionality=None  # Use model default
-                    )
+                        output_dimensionality=None,  # Use model default
+                    ),
                 )
                 embeddings.append(response.embeddings[0].values)
             return embeddings
-        
+
         return await loop.run_in_executor(None, _embed_documents)
 
     async def embed_query(self, query: str) -> List[float]:
         """Embed a query into a vector."""
         # Run in a thread pool since Google GenAI client may be synchronous
         loop = asyncio.get_event_loop()
-        
+
         def _embed_query():
             from google.genai import types
-            
+
             response = self.client.models.embed_content(
                 model=self.model_name,
                 contents=query,
                 config=types.EmbedContentConfig(
                     task_type="RETRIEVAL_QUERY",
-                    output_dimensionality=None  # Use model default
-                )
+                    output_dimensionality=None,  # Use model default
+                ),
             )
             return response.embeddings[0].values
-        
+
         return await loop.run_in_executor(None, _embed_query)
 
     def get_vector_name(self) -> str:
@@ -117,5 +115,5 @@ class GoogleGenAIProvider(EmbeddingProvider):
             "text-multilingual-embedding-002": 768,
             "gemini-embedding-001": 3072,
         }
-        
-        return model_dimensions.get(self.model_name, 768)  # Default to 768 
+
+        return model_dimensions.get(self.model_name, 768)  # Default to 768

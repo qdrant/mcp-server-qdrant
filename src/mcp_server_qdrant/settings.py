@@ -44,7 +44,7 @@ class EmbeddingProviderSettings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
     )
-    
+
     # Google GenAI specific settings
     api_key: Optional[str] = Field(
         default=None,

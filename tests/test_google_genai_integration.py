@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from mcp_server_qdrant.embeddings.google_genai import GoogleGenAIProvider
 
@@ -10,8 +11,7 @@ class TestGoogleGenAIProviderIntegration:
     def test_initialization_with_api_key(self):
         """Test that the provider can be initialized with an API key."""
         provider = GoogleGenAIProvider(
-            model_name="text-embedding-004",
-            api_key="test-api-key"
+            model_name="text-embedding-004", api_key="test-api-key"
         )
         assert provider.model_name == "text-embedding-004"
         assert provider.api_key == "test-api-key"
@@ -23,7 +23,7 @@ class TestGoogleGenAIProviderIntegration:
             model_name="text-embedding-004",
             project="test-project",
             location="us-central1",
-            use_vertex_ai=True
+            use_vertex_ai=True,
         )
         assert provider.model_name == "text-embedding-004"
         assert provider.project == "test-project"
@@ -32,7 +32,7 @@ class TestGoogleGenAIProviderIntegration:
 
     async def test_embed_documents(self):
         """Test that documents can be embedded."""
-        # Mock the client and its behavior 
+        # Mock the client and its behavior
         mock_client = Mock()
         mock_response = Mock()
         mock_response.embeddings = [Mock(values=[0.1, 0.2, 0.3])]
@@ -44,7 +44,7 @@ class TestGoogleGenAIProviderIntegration:
 
         documents = ["This is a test document."]
 
-        with patch('google.genai.types') as mock_types:
+        with patch("google.genai.types") as mock_types:
             mock_embed_config = Mock()
             mock_types.EmbedContentConfig.return_value = mock_embed_config
 
@@ -57,8 +57,8 @@ class TestGoogleGenAIProviderIntegration:
             # Verify the client was called correctly
             mock_client.models.embed_content.assert_called_once()
             call_args = mock_client.models.embed_content.call_args
-            assert call_args[1]['model'] == "text-embedding-004"
-            assert call_args[1]['contents'] == "This is a test document."
+            assert call_args[1]["model"] == "text-embedding-004"
+            assert call_args[1]["contents"] == "This is a test document."
 
     async def test_embed_query(self):
         """Test that queries can be embedded."""
@@ -74,7 +74,7 @@ class TestGoogleGenAIProviderIntegration:
 
         query = "This is a test query."
 
-        with patch('google.genai.types') as mock_types:
+        with patch("google.genai.types") as mock_types:
             mock_embed_config = Mock()
             mock_types.EmbedContentConfig.return_value = mock_embed_config
 
@@ -86,8 +86,8 @@ class TestGoogleGenAIProviderIntegration:
             # Verify the client was called correctly
             mock_client.models.embed_content.assert_called_once()
             call_args = mock_client.models.embed_content.call_args
-            assert call_args[1]['model'] == "text-embedding-004"
-            assert call_args[1]['contents'] == "This is a test query."
+            assert call_args[1]["model"] == "text-embedding-004"
+            assert call_args[1]["contents"] == "This is a test query."
 
     def test_get_vector_name(self):
         """Test that the vector name is generated correctly."""
@@ -118,9 +118,14 @@ class TestGoogleGenAIProviderIntegration:
     def test_import_error_handling(self):
         """Test that ImportError is raised when google-genai is not available."""
         provider = GoogleGenAIProvider(api_key="test-api-key")
-        
+
         # Mock the import to raise ImportError
-        with patch.dict('sys.modules', {'google.genai': None}):
-            with patch('builtins.__import__', side_effect=ImportError("No module named 'google.genai'")):
-                with pytest.raises(ImportError, match="google-genai package is required"):
-                    _ = provider.client 
+        with patch.dict("sys.modules", {"google.genai": None}):
+            with patch(
+                "builtins.__import__",
+                side_effect=ImportError("No module named 'google.genai'"),
+            ):
+                with pytest.raises(
+                    ImportError, match="google-genai package is required"
+                ):
+                    _ = provider.client

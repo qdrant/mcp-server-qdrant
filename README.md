@@ -258,7 +258,7 @@ uvx mcp-server-qdrant
 
 #### Supported Google GenAI Models:
 - `text-embedding-004` (768 dimensions) - Latest English and code tasks model
-- `text-embedding-005` (768 dimensions) - Specialized in English and code tasks  
+- `text-embedding-005` (768 dimensions) - Specialized in English and code tasks
 - `text-multilingual-embedding-002` (768 dimensions) - Multilingual model
 - `gemini-embedding-001` (3072 dimensions) - High-performance model for superior quality
 
