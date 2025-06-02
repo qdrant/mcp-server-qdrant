@@ -44,8 +44,12 @@ The configuration of the server is done using environment variables:
 | `QDRANT_API_KEY`         | API key for the Qdrant server                                       | None                                                              |
 | `COLLECTION_NAME`        | Name of the default collection to use.                              | None                                                              |
 | `QDRANT_LOCAL_PATH`      | Path to the local Qdrant database (alternative to `QDRANT_URL`)     | None                                                              |
-| `EMBEDDING_PROVIDER`     | Embedding provider to use (currently only "fastembed" is supported) | `fastembed`                                                       |
+| `EMBEDDING_PROVIDER`     | Embedding provider to use ("fastembed" or "google_genai")           | `fastembed`                                                       |
 | `EMBEDDING_MODEL`        | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
+| `GOOGLE_API_KEY`         | Google AI API key (for Google GenAI provider)                       | None                                                              |
+| `GOOGLE_CLOUD_PROJECT`   | Google Cloud project ID (for Vertex AI)                             | None                                                              |
+| `GOOGLE_CLOUD_LOCATION`  | Google Cloud location (for Vertex AI)                               | `us-central1`                                                     |
+| `GOOGLE_GENAI_USE_VERTEXAI` | Use Vertex AI instead of Gemini Developer API                     | `false`                                                           |
 | `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 
@@ -174,7 +178,49 @@ For local Qdrant mode:
 This MCP server will automatically create a collection with the specified name if it doesn't exist.
 
 By default, the server will use the `sentence-transformers/all-MiniLM-L6-v2` embedding model to encode memories.
-For the time being, only [FastEmbed](https://qdrant.github.io/fastembed/) models are supported.
+The server supports both [FastEmbed](https://qdrant.github.io/fastembed/) and [Google Generative AI](https://ai.google.dev/api/embeddings) embedding providers.
+
+## Embedding Providers
+
+### FastEmbed (Default)
+Use FastEmbed for local, offline embedding generation with various open-source models.
+
+```bash
+EMBEDDING_PROVIDER="fastembed" \
+EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2" \
+uvx mcp-server-qdrant
+```
+
+### Google Generative AI
+Use Google's state-of-the-art embedding models via the Gemini Developer API or Vertex AI.
+
+#### Using Gemini Developer API:
+```bash
+EMBEDDING_PROVIDER="google_genai" \
+EMBEDDING_MODEL="text-embedding-004" \
+GOOGLE_API_KEY="your-api-key" \
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+uvx mcp-server-qdrant
+```
+
+#### Using Vertex AI:
+```bash
+EMBEDDING_PROVIDER="google_genai" \
+EMBEDDING_MODEL="text-embedding-004" \
+GOOGLE_GENAI_USE_VERTEXAI="true" \
+GOOGLE_CLOUD_PROJECT="your-project-id" \
+GOOGLE_CLOUD_LOCATION="us-central1" \
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+uvx mcp-server-qdrant
+```
+
+#### Supported Google GenAI Models:
+- `text-embedding-004` (768 dimensions) - Latest English and code tasks model
+- `text-embedding-005` (768 dimensions) - Specialized in English and code tasks  
+- `text-multilingual-embedding-002` (768 dimensions) - Multilingual model
+- `gemini-embedding-001` (3072 dimensions) - High-performance model for superior quality
 
 ## Support for other tools
 

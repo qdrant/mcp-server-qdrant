@@ -44,6 +44,24 @@ class EmbeddingProviderSettings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
     )
+    
+    # Google GenAI specific settings
+    api_key: Optional[str] = Field(
+        default=None,
+        validation_alias="GOOGLE_API_KEY",
+    )
+    project: Optional[str] = Field(
+        default=None,
+        validation_alias="GOOGLE_CLOUD_PROJECT",
+    )
+    location: Optional[str] = Field(
+        default="us-central1",
+        validation_alias="GOOGLE_CLOUD_LOCATION",
+    )
+    use_vertex_ai: bool = Field(
+        default=False,
+        validation_alias="GOOGLE_GENAI_USE_VERTEXAI",
+    )
 
 
 class QdrantSettings(BaseSettings):
