@@ -1,6 +1,5 @@
-import unittest
-from unittest.mock import AsyncMock, Mock, patch
 import pytest
+from unittest.mock import Mock, patch
 
 from mcp_server_qdrant.embeddings.google_genai import GoogleGenAIProvider
 
@@ -31,54 +30,64 @@ class TestGoogleGenAIProviderIntegration:
         assert provider.location == "us-central1"
         assert provider.use_vertex_ai is True
 
-    @patch('mcp_server_qdrant.embeddings.google_genai.genai')
-    async def test_embed_documents(self, mock_genai):
+    async def test_embed_documents(self):
         """Test that documents can be embedded."""
-        # Mock the client and response
+        # Mock the client and its behavior 
         mock_client = Mock()
         mock_response = Mock()
         mock_response.embeddings = [Mock(values=[0.1, 0.2, 0.3])]
         mock_client.models.embed_content.return_value = mock_response
-        mock_genai.Client.return_value = mock_client
 
         provider = GoogleGenAIProvider(api_key="test-api-key")
+        # Directly set the client to bypass the lazy loading and import
+        provider._client = mock_client
+
         documents = ["This is a test document."]
 
-        embeddings = await provider.embed_documents(documents)
+        with patch('google.genai.types') as mock_types:
+            mock_embed_config = Mock()
+            mock_types.EmbedContentConfig.return_value = mock_embed_config
 
-        # Check that we got the right embeddings
-        assert len(embeddings) == 1
-        assert embeddings[0] == [0.1, 0.2, 0.3]
+            embeddings = await provider.embed_documents(documents)
 
-        # Verify the client was called correctly
-        mock_client.models.embed_content.assert_called_once()
-        call_args = mock_client.models.embed_content.call_args
-        assert call_args[1]['model'] == "text-embedding-004"
-        assert call_args[1]['contents'] == "This is a test document."
+            # Check that we got the right embeddings
+            assert len(embeddings) == 1
+            assert embeddings[0] == [0.1, 0.2, 0.3]
 
-    @patch('mcp_server_qdrant.embeddings.google_genai.genai')
-    async def test_embed_query(self, mock_genai):
+            # Verify the client was called correctly
+            mock_client.models.embed_content.assert_called_once()
+            call_args = mock_client.models.embed_content.call_args
+            assert call_args[1]['model'] == "text-embedding-004"
+            assert call_args[1]['contents'] == "This is a test document."
+
+    async def test_embed_query(self):
         """Test that queries can be embedded."""
-        # Mock the client and response
+        # Mock the client and its behavior
         mock_client = Mock()
         mock_response = Mock()
         mock_response.embeddings = [Mock(values=[0.1, 0.2, 0.3])]
         mock_client.models.embed_content.return_value = mock_response
-        mock_genai.Client.return_value = mock_client
 
         provider = GoogleGenAIProvider(api_key="test-api-key")
+        # Directly set the client to bypass the lazy loading and import
+        provider._client = mock_client
+
         query = "This is a test query."
 
-        embedding = await provider.embed_query(query)
+        with patch('google.genai.types') as mock_types:
+            mock_embed_config = Mock()
+            mock_types.EmbedContentConfig.return_value = mock_embed_config
 
-        # Check that we got the right embedding
-        assert embedding == [0.1, 0.2, 0.3]
+            embedding = await provider.embed_query(query)
 
-        # Verify the client was called correctly
-        mock_client.models.embed_content.assert_called_once()
-        call_args = mock_client.models.embed_content.call_args
-        assert call_args[1]['model'] == "text-embedding-004"
-        assert call_args[1]['contents'] == "This is a test query."
+            # Check that we got the right embedding
+            assert embedding == [0.1, 0.2, 0.3]
+
+            # Verify the client was called correctly
+            mock_client.models.embed_content.assert_called_once()
+            call_args = mock_client.models.embed_content.call_args
+            assert call_args[1]['model'] == "text-embedding-004"
+            assert call_args[1]['contents'] == "This is a test query."
 
     def test_get_vector_name(self):
         """Test that the vector name is generated correctly."""
@@ -108,8 +117,10 @@ class TestGoogleGenAIProviderIntegration:
 
     def test_import_error_handling(self):
         """Test that ImportError is raised when google-genai is not available."""
-        with patch('mcp_server_qdrant.embeddings.google_genai.genai', side_effect=ImportError()):
-            provider = GoogleGenAIProvider(api_key="test-api-key")
-            
-            with pytest.raises(ImportError, match="google-genai package is required"):
-                _ = provider.client 
+        provider = GoogleGenAIProvider(api_key="test-api-key")
+        
+        # Mock the import to raise ImportError
+        with patch.dict('sys.modules', {'google.genai': None}):
+            with patch('builtins.__import__', side_effect=ImportError("No module named 'google.genai'")):
+                with pytest.raises(ImportError, match="google-genai package is required"):
+                    _ = provider.client 

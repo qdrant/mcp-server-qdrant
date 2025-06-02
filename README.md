@@ -175,6 +175,46 @@ For local Qdrant mode:
 }
 ```
 
+For Google Generative AI with Gemini Developer API:
+
+```json
+{
+  "qdrant": {
+    "command": "uvx",
+    "args": ["mcp-server-qdrant"],
+    "env": {
+      "QDRANT_URL": "https://xyz-example.eu-central.aws.cloud.qdrant.io:6333",
+      "QDRANT_API_KEY": "your_qdrant_api_key",
+      "COLLECTION_NAME": "your-collection-name",
+      "EMBEDDING_PROVIDER": "google_genai",
+      "EMBEDDING_MODEL": "text-embedding-004",
+      "GOOGLE_API_KEY": "your_google_api_key"
+    }
+  }
+}
+```
+
+For Google Generative AI with Vertex AI:
+
+```json
+{
+  "qdrant": {
+    "command": "uvx",
+    "args": ["mcp-server-qdrant"],
+    "env": {
+      "QDRANT_URL": "https://xyz-example.eu-central.aws.cloud.qdrant.io:6333",
+      "QDRANT_API_KEY": "your_qdrant_api_key",
+      "COLLECTION_NAME": "your-collection-name",
+      "EMBEDDING_PROVIDER": "google_genai",
+      "EMBEDDING_MODEL": "text-embedding-004",
+      "GOOGLE_GENAI_USE_VERTEXAI": "true",
+      "GOOGLE_CLOUD_PROJECT": "your-project-id",
+      "GOOGLE_CLOUD_LOCATION": "us-central1"
+    }
+  }
+}
+```
+
 This MCP server will automatically create a collection with the specified name if it doesn't exist.
 
 By default, the server will use the `sentence-transformers/all-MiniLM-L6-v2` embedding model to encode memories.
