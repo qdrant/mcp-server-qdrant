@@ -1,4 +1,5 @@
 import argparse
+import os
 
 
 def main():
@@ -15,10 +16,25 @@ def main():
         choices=["stdio", "sse", "streamable-http"],
         default="stdio",
     )
+    parser.add_argument(
+        "--host",
+        default=os.getenv("FASTMCP_HOST", "127.0.0.1"),
+        help="Host to bind the server to (default: 127.0.0.1, override with FASTMCP_HOST)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("FASTMCP_PORT", "8000")),
+        help="Port to run the server on (default: 8000, override with FASTMCP_PORT)",
+    )
     args = parser.parse_args()
 
     # Import is done here to make sure environment variables are loaded
     # only after we make the changes.
     from mcp_server_qdrant.server import mcp
 
-    mcp.run(transport=args.transport)
+    # For SSE and HTTP transports, pass host and port
+    if args.transport in ["sse", "streamable-http"]:
+        mcp.run(transport=args.transport, host=args.host, port=args.port)
+    else:
+        mcp.run(transport=args.transport)

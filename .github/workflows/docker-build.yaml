@@ -53,8 +53,12 @@ jobs:
         run: |
           if [[ $GITHUB_REF == refs/tags/v* ]]; then
             echo "ref=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          elif [[ $GITHUB_REF == refs/heads/main ]] || [[ $GITHUB_REF == refs/heads/master ]]; then
+          elif [[ $GITHUB_REF == refs/heads/main ]]; then
             echo "ref=main" >> $GITHUB_OUTPUT
+          elif [[ $GITHUB_REF == refs/heads/master ]]; then
+            echo "ref=master" >> $GITHUB_OUTPUT
+          elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+            echo "ref=dev" >> $GITHUB_OUTPUT
           else
             echo "ref=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
           fi
