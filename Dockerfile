@@ -64,3 +64,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
 
 # Run the server with SSE transport
 CMD ["mcp-server-qdrant", "--transport", "sse"]
+
