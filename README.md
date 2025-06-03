@@ -67,8 +67,8 @@ important ones are listed below:
 |---------------------------------------|-----------------------------------------------------------|---------------|
 | `FASTMCP_DEBUG`                       | Enable debug mode                                         | `false`       |
 | `FASTMCP_LOG_LEVEL`                   | Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) | `INFO`        |
-| `FASTMCP_HOST`                        | Host address to bind the server to                        | `0.0.0.0`     |
-| `FASTMCP_PORT`                        | Port to run the server on                                 | `8000`        |
+| `FASTMCP_SERVER_HOST`                 | Host address to bind the server to                        | `0.0.0.0`     |
+| `FASTMCP_SERVER_PORT`                 | Port to run the server on                                 | `8000`        |
 | `FASTMCP_WARN_ON_DUPLICATE_RESOURCES` | Show warnings for duplicate resources                     | `true`        |
 | `FASTMCP_WARN_ON_DUPLICATE_TOOLS`     | Show warnings for duplicate tools                         | `true`        |
 | `FASTMCP_WARN_ON_DUPLICATE_PROMPTS`   | Show warnings for duplicate prompts                       | `true`        |
@@ -111,7 +111,7 @@ port is 8000, however it can be changed using the `FASTMCP_PORT` environment var
 ```shell
 QDRANT_URL="http://localhost:6333" \
 COLLECTION_NAME="my-collection" \
-FASTMCP_PORT=1234 \
+FASTMCP_SERVER_PORT=1234 \
 uvx mcp-server-qdrant --transport sse
 ```
 

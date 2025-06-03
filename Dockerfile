@@ -42,8 +42,8 @@ ENV GOOGLE_API_KEY=""
 ENV GOOGLE_CLOUD_PROJECT=""
 ENV GOOGLE_CLOUD_LOCATION="us-central1"
 ENV GOOGLE_GENAI_USE_VERTEXAI="false"
-ENV FASTMCP_HOST="0.0.0.0"
-ENV FASTMCP_PORT="8000"
+ENV FASTMCP_SERVER_HOST="0.0.0.0"
+ENV FASTMCP_SERVER_PORT="8000"
 
 # Run the server with SSE transport
-CMD ["mcp-server-qdrant", "--transport", "sse", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["mcp-server-qdrant", "--transport", "sse"]

@@ -18,14 +18,14 @@ def main():
     )
     parser.add_argument(
         "--host",
-        default=os.getenv("FASTMCP_HOST", "127.0.0.1"),
-        help="Host to bind the server to (default: 127.0.0.1, override with FASTMCP_HOST)",
+        default=os.getenv("FASTMCP_SERVER_HOST", "127.0.0.1"),
+        help="Host to bind the server to (default: 127.0.0.1, override with FASTMCP_SERVER_HOST)",
     )
     parser.add_argument(
         "--port",
         type=int,
-        default=int(os.getenv("FASTMCP_PORT", "8000")),
-        help="Port to run the server on (default: 8000, override with FASTMCP_PORT)",
+        default=int(os.getenv("FASTMCP_SERVER_PORT", "8000")),
+        help="Port to run the server on (default: 8000, override with FASTMCP_SERVER_PORT)",
     )
     args = parser.parse_args()
 
@@ -33,8 +33,5 @@ def main():
     # only after we make the changes.
     from mcp_server_qdrant.server import mcp
 
-    # For SSE and HTTP transports, pass host and port
-    if args.transport in ["sse", "streamable-http"]:
-        mcp.run(transport=args.transport, host=args.host, port=args.port)
-    else:
-        mcp.run(transport=args.transport)
+    # Run with the specified transport - let FastMCP handle host/port from environment
+    mcp.run(transport=args.transport)
