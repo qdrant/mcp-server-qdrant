@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
@@ -44,6 +44,14 @@ class EmbeddingProviderSettings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
     )
+
+    @field_validator("provider_type", mode="before")
+    @classmethod
+    def validate_provider_type(cls, v):
+        """Convert string to EmbeddingProviderType if needed."""
+        if isinstance(v, str):
+            return EmbeddingProviderType(v)
+        return v
 
     # Google GenAI specific settings
     api_key: Optional[str] = Field(

@@ -55,15 +55,51 @@ class TestEmbeddingProviderSettings:
         assert settings.provider_type == EmbeddingProviderType.FASTEMBED
         assert settings.model_name == "sentence-transformers/all-MiniLM-L6-v2"
 
-    @patch.dict(
-        os.environ,
-        {"EMBEDDING_MODEL": "custom_model"},
-    )
     def test_custom_values(self):
-        """Test loading custom values from environment variables."""
-        settings = EmbeddingProviderSettings()
-        assert settings.provider_type == EmbeddingProviderType.FASTEMBED
-        assert settings.model_name == "custom_model"
+        """Test custom values for embedding provider settings."""
+        import os
+
+        # Set environment variables
+        os.environ["EMBEDDING_PROVIDER"] = "google_genai"
+        os.environ["EMBEDDING_MODEL"] = "text-embedding-004"
+        os.environ["GOOGLE_API_KEY"] = "test-api-key"
+        os.environ["GOOGLE_CLOUD_PROJECT"] = "test-project"
+        os.environ["GOOGLE_CLOUD_LOCATION"] = "us-west1"
+        os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
+
+        try:
+            settings = EmbeddingProviderSettings()
+            assert settings.provider_type == EmbeddingProviderType.GOOGLE_GENAI
+            assert settings.model_name == "text-embedding-004"
+            assert settings.api_key == "test-api-key"
+            assert settings.project == "test-project"
+            assert settings.location == "us-west1"
+            assert settings.use_vertex_ai is True
+        finally:
+            # Clean up environment variables
+            for key in [
+                "EMBEDDING_PROVIDER",
+                "EMBEDDING_MODEL",
+                "GOOGLE_API_KEY",
+                "GOOGLE_CLOUD_PROJECT",
+                "GOOGLE_CLOUD_LOCATION",
+                "GOOGLE_GENAI_USE_VERTEXAI",
+            ]:
+                os.environ.pop(key, None)
+
+    def test_string_to_enum_conversion(self):
+        """Test that string values are properly converted to enum."""
+        import os
+
+        # Test with string value that should convert to enum
+        os.environ["EMBEDDING_PROVIDER"] = "google_genai"
+
+        try:
+            settings = EmbeddingProviderSettings()
+            assert settings.provider_type == EmbeddingProviderType.GOOGLE_GENAI
+            assert isinstance(settings.provider_type, EmbeddingProviderType)
+        finally:
+            os.environ.pop("EMBEDDING_PROVIDER", None)
 
 
 class TestToolSettings:
