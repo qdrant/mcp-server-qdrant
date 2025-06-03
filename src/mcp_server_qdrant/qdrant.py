@@ -179,114 +179,68 @@ class QdrantConnector:
             distance=models.Distance.COSINE, # Or whatever default/configurable distance you use
         )
         logger.info(
-            f"Ensuring collection '{collection_name}' is configured for vector_name '{vector_name}' "
-            f"with size {vector_size}."
+            f"Ensuring collection '{collection_name}' is configured for NAMED vector '{vector_name}' "
+            f"with size {vector_size} and distance {models.Distance.COSINE}."
         )
+        
+        required_params_for_our_vector = models.VectorParams(size=vector_size, distance=models.Distance.COSINE)
+        target_overall_vectors_config = {vector_name: required_params_for_our_vector}
 
         try:
             collection_info = await self._client.get_collection(collection_name)
-            logger.info(f"Collection '{collection_name}' found. Current config: {collection_info.config}")
+            logger.info(f"Collection '{collection_name}' exists. Verifying its configuration.")
+            logger.debug(f"Full current collection config from Qdrant: {collection_info.config}")
+            
             current_vectors_config = collection_info.config.params.vectors
-            logger.debug(f"Current vectors_config for '{collection_name}': {current_vectors_config}")
+            
+            is_correctly_configured = False
+            if isinstance(current_vectors_config, dict) and \
+               vector_name in current_vectors_config and \
+               current_vectors_config[vector_name].size == vector_size and \
+               current_vectors_config[vector_name].distance == required_params_for_our_vector.distance:
+                is_correctly_configured = True
+            
+            if is_correctly_configured:
+                logger.info(f"Collection '{collection_name}' is ALREADY correctly configured for vector '{vector_name}'.")
+                return # Collection is fine, nothing more to do
 
-            needs_update = False
-            if isinstance(current_vectors_config, dict):  # Named vectors config
-                if vector_name not in current_vectors_config:
-                    logger.info(
-                        f"Named vector '{vector_name}' not found in config of collection '{collection_name}'. "
-                        f"Existing named vectors: {list(current_vectors_config.keys())}."
-                    )
-                    needs_update = True
-                else:
-                    existing_params = current_vectors_config[vector_name]
-                    logger.info(f"Named vector '{vector_name}' found in '{collection_name}'. Params: {existing_params}")
-                    if existing_params.size != vector_size:
-                        logger.warning(
-                            f"Vector '{vector_name}' in collection '{collection_name}' has mismatched size. "
-                            f"Expected {vector_size}, got {existing_params.size}. This may cause issues. "
-                            f"Attempting to update."
-                        )
-                        needs_update = True # Qdrant might not allow direct size update, this might require recreation or careful handling
-                    # Add more checks if needed (e.g., distance function)
-            elif isinstance(current_vectors_config, models.VectorParams):  # Legacy single unnamed vector
-                logger.warning(
-                    f"Collection '{collection_name}' uses a legacy unnamed vector configuration. "
-                    f"It needs to be updated for named vector '{vector_name}'."
-                )
-                needs_update = True
-            else:
-                logger.error(
-                    f"Unrecognized vectors configuration type for collection '{collection_name}': {type(current_vectors_config)}. "
-                    f"Cannot determine if update is needed."
-                )
-                # Depending on strictness, you might want to raise an error here or simply return
-                return
+            # If not correctly configured, log critical error and raise an exception
+            # to prevent proceeding with a misconfigured collection.
+            error_message = (
+                f"CRITICAL: Collection '{collection_name}' exists but has an INCOMPATIBLE configuration. "
+                f"Current vectors_config: {current_vectors_config}. "
+                f"Expected named vector '{vector_name}' with params: {required_params_for_our_vector}. "
+                f"Manual intervention or reset of collection '{collection_name}' is required. "
+                f"Server will not attempt to automatically delete/recreate it with this logic."
+            )
+            logger.error(error_message)
+            raise ValueError(error_message) # Raise an error to stop the process
 
-            if needs_update:
-                logger.info(
-                    f"Attempting to update collection '{collection_name}' to include/update vector '{vector_name}' "
-                    f"with params: {required_vector_params}."
-                )
-                try:
-                    update_vectors_config = {vector_name: required_vector_params}
-                    logger.info(f"Calling update_collection for '{collection_name}' with vectors_config: {update_vectors_config}")
-                    # For named vectors, update_collection expects a dict of vector names to params
-                    await self._client.update_collection(
-                        collection_name=collection_name,
-                        vectors_config=update_vectors_config
-                    )
-                    logger.info(f"Successfully updated collection '{collection_name}' for vector '{vector_name}'.")
-                except Exception as e_update:
-                    logger.error(f"Failed to update collection '{collection_name}' for vector '{vector_name}': {e_update}")
-                    # Log raw error if available
-                    if hasattr(e_update, 'response') and hasattr(e_update.response, 'text'):
-                        logger.error(f"Qdrant raw update error response: {e_update.response.text}")
-                    elif hasattr(e_update, 'json'):
-                        try:
-                            logger.error(f"Qdrant raw update error (json): {e_update.json()}")
-                        except: # nosec
-                            pass
-                    raise  # Re-raise to signal that configuration might still be an issue.
+        except Exception as e: # Catch Qdrant client errors (like "not found") or the ValueError from above
+            if isinstance(e, ValueError) and "CRITICAL: Collection" in str(e):
+                raise # Re-raise our specific critical error
 
-        except Exception as e:
             err_str = str(e).lower()
             is_not_found_error = (
-                "not found" in err_str or
-                "status_code=404" in err_str or
-                (hasattr(e, 'status_code') and e.status_code == 404) or
-                (isinstance(e, ValueError) and "not found" in err_str) # For some local client errors
+                "not found" in err_str or 
+                "status_code=404" in err_str or 
+                (hasattr(e, 'status_code') and e.status_code == 404)
             )
-
             if is_not_found_error:
-                logger.info(
-                    f"Collection '{collection_name}' does not exist. Creating it with vector '{vector_name}' "
-                    f"and params: {required_vector_params}."
-                )
+                logger.info(f"Collection '{collection_name}' does not exist. Proceeding to create with target config: {target_overall_vectors_config}")
                 try:
-                    create_vectors_config = {vector_name: required_vector_params}
-                    logger.info(f"Calling create_collection for '{collection_name}' with vectors_config: {create_vectors_config}")
                     await self._client.create_collection(
                         collection_name=collection_name,
-                        vectors_config=create_vectors_config,
+                        vectors_config=target_overall_vectors_config,
                     )
-                    logger.info(f"Successfully created collection '{collection_name}' with vector '{vector_name}'.")
+                    logger.info(f"Successfully created collection '{collection_name}' with NAMED vector config.")
                 except Exception as e_create:
                     logger.error(f"Failed to create collection '{collection_name}': {e_create}")
                     if hasattr(e_create, 'response') and hasattr(e_create.response, 'text'):
                         logger.error(f"Qdrant raw create error response: {e_create.response.text}")
-                    elif hasattr(e_create, 'json'):
-                        try:
-                            logger.error(f"Qdrant raw create error (json): {e_create.json()}")
-                        except: # nosec
-                            pass
                     raise
-            else:
-                logger.error(f"Failed to get or process collection info for '{collection_name}' (not a 'not found' error): {e}")
+            else: # Unexpected error during get_collection
+                logger.error(f"Unexpected error when checking collection '{collection_name}': {e}")
                 if hasattr(e, 'response') and hasattr(e.response, 'text'):
-                    logger.error(f"Qdrant raw get_collection error response: {e.response.text}")
-                elif hasattr(e, 'json'):
-                    try:
-                        logger.error(f"Qdrant raw get_collection error (json): {e.json()}")
-                    except: # nosec
-                        pass
-                raise
+                    logger.error(f"Raw Qdrant error response: {e.response.text}")
+                raise # Re-raise other unexpected errors
