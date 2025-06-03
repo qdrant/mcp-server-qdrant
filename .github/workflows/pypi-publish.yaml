@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write  # Needed for creating releases
-      
+
     steps:
     - uses: actions/checkout@v4
 
