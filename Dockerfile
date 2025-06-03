@@ -44,8 +44,6 @@ ENV GOOGLE_CLOUD_LOCATION="us-central1"
 ENV GOOGLE_GENAI_USE_VERTEXAI="false"
 ENV FASTMCP_HOST="0.0.0.0"
 ENV FASTMCP_PORT="8000"
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-  CMD curl -f http://127.0.0.1:8000/health || exit 1
+
 # Run the server with SSE transport
-CMD ["mcp-server-qdrant", "--transport", "sse"]
+CMD ["mcp-server-qdrant", "--transport", "sse", "--host", "0.0.0.0", "--port", "8000"]
