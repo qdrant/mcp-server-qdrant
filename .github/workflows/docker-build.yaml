@@ -46,21 +46,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Determine package reference
-        id: package_ref
-        run: |
-          if [[ $GITHUB_REF == refs/tags/v* ]]; then
-            echo "ref=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          elif [[ $GITHUB_REF == refs/heads/main ]]; then
-            echo "ref=main" >> $GITHUB_OUTPUT
-          elif [[ $GITHUB_REF == refs/heads/master ]]; then
-            echo "ref=master" >> $GITHUB_OUTPUT
-          elif [[ $GITHUB_REF == refs/heads/dev ]]; then
-            echo "ref=dev" >> $GITHUB_OUTPUT
-          else
-            echo "ref=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -69,8 +54,5 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            PACKAGE_REF=${{ steps.package_ref.outputs.ref }}
-            PACKAGE_REPO=https://github.com/${{ github.repository }}.git
           cache-from: type=gha
           cache-to: type=gha,mode=max
