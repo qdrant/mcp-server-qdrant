@@ -6,38 +6,106 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: PyPI Publish
+name: Build and Release Package
 
 on:
   workflow_dispatch:
   push:
-    # Pattern matched against refs/tags
     tags:
-      - 'v*'           # Push events to every version tag
-
-env:
-  UV_PUBLISH_TOKEN: '${{ secrets.PYPI_API_TOKEN }}'
+      - 'v*'           # Only on version tags
 
 jobs:
-  build:
-
+  build-and-release:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write  # Needed for creating releases
+      
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.10.x'
+        python-version: '3.11'
+
+    - name: Install uv
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install uv
 
     - name: Install dependencies
+      run: uv sync
+
+    - name: Get version info
+      id: get_info
       run: |
-        python -m pip install uv
-        uv sync
+        VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+        TAG_VERSION=${GITHUB_REF#refs/tags/}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
+        echo "Package version: $VERSION"
+        echo "Tag version: $TAG_VERSION"
+
+    - name: Verify version matches tag
+      run: |
+        if [ "v${{ steps.get_info.outputs.version }}" != "${{ steps.get_info.outputs.tag_version }}" ]; then
+          echo "Error: Package version (v${{ steps.get_info.outputs.version }}) doesn't match tag (${{ steps.get_info.outputs.tag_version }})"
+          exit 1
+        fi
 
     - name: Build package
       run: uv build
 
-    - name: Publish package
-      run: uv publish
+    - name: List built packages
+      run: |
+        echo "Built packages:"
+        ls -la dist/
+        echo "Package contents:"
+        for file in dist/*; do
+          echo "=== $file ==="
+          if [[ $file == *.whl ]]; then
+            python -m zipfile -l "$file" | head -20
+          fi
+        done
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/*.whl
+          dist/*.tar.gz
+        generate_release_notes: true
+        draft: false
+        prerelease: false
+        name: "Release ${{ steps.get_info.outputs.tag_version }}"
+        body: |
+          ## 📦 Installation
+
+          ### Using uv (recommended):
+          ```bash
+          uvx --from git+https://github.com/${{ github.repository }}.git@${{ steps.get_info.outputs.tag_version }} mcp-server-qdrant
+          ```
+
+          ### Using pip:
+          ```bash
+          pip install git+https://github.com/${{ github.repository }}.git@${{ steps.get_info.outputs.tag_version }}
+          ```
+
+          ### Download wheel directly:
+          Download the `.whl` file from assets below and install with:
+          ```bash
+          pip install mcp_server_qdrant-${{ steps.get_info.outputs.version }}-py3-none-any.whl
+          ```
+
+          ## 🐳 Docker:
+          ```bash
+          docker run -e QDRANT_URL="your-url" -e COLLECTION_NAME="your-collection" ghcr.io/${{ github.repository }}:${{ steps.get_info.outputs.tag_version }}
+          ```
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload build artifacts (backup)
+      uses: actions/upload-artifact@v4
+      with:
+        name: python-package-${{ steps.get_info.outputs.version }}
+        path: dist/
+        retention-days: 90
