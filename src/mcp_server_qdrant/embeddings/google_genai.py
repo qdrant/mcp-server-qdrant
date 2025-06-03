@@ -116,4 +116,6 @@ class GoogleGenAIProvider(EmbeddingProvider):
             "gemini-embedding-001": 3072,
         }
 
-        return model_dimensions.get(self.model_name, 768)  # Default to 768
+        # Extract the base model name if it's prefixed, e.g., "models/text-embedding-004" -> "text-embedding-004"
+        base_model_name = self.model_name.split('/')[-1]
+        return model_dimensions.get(base_model_name, 768)  # Default to 768 if not found
