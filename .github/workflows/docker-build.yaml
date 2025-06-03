@@ -71,4 +71,4 @@ jobs:
             PACKAGE_REF=${{ steps.package_ref.outputs.ref }}
             PACKAGE_REPO=https://github.com/${{ github.repository }}.git
           cache-from: type=gha
-          cache-to: type=gha,mode=max 
+          cache-to: type=gha,mode=max
