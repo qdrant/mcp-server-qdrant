@@ -1,4 +1,5 @@
 import os
+
 from mcp_server_qdrant.mcp_server import QdrantMCPServer
 from mcp_server_qdrant.settings import (
     EmbeddingProviderSettings,
