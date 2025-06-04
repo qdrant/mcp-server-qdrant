@@ -1,12 +1,16 @@
 import json
 import logging
-from typing import Any, List, Optional
+from typing import Annotated, Any, List, Optional
 
 from fastmcp import Context, FastMCP
+from pydantic import Field
+from qdrant_client import models
 
+from mcp_server_qdrant.common.filters import make_indexes
 from mcp_server_qdrant.common.func_tools import make_partial_function
+from mcp_server_qdrant.common.wrap_filters import wrap_filters
 from mcp_server_qdrant.embeddings.factory import create_embedding_provider
-from mcp_server_qdrant.qdrant import Entry, Metadata, QdrantConnector
+from mcp_server_qdrant.qdrant import ArbitraryFilter, Entry, Metadata, QdrantConnector
 from mcp_server_qdrant.settings import (
     EmbeddingProviderSettings,
     QdrantSettings,
@@ -43,6 +47,7 @@ class QdrantMCPServer(FastMCP):
             qdrant_settings.collection_name,
             self.embedding_provider,
             qdrant_settings.local_path,
+            make_indexes(qdrant_settings.filterable_fields_dict()),
         )
 
         super().__init__(name=name, instructions=instructions, **settings)
@@ -63,12 +68,19 @@ class QdrantMCPServer(FastMCP):
 
         async def store(
             ctx: Context,
-            information: str,
-            collection_name: str,
+            information: Annotated[str, Field(description="Text to store")],
+            collection_name: Annotated[
+                str, Field(description="The collection to store the information in")
+            ],
             # The `metadata` parameter is defined as non-optional, but it can be None.
             # If we set it to be optional, some of the MCP clients, like Cursor, cannot
             # handle the optional parameter correctly.
-            metadata: Optional[Metadata] = None,  # type: ignore
+            metadata: Annotated[
+                Optional[Metadata],
+                Field(
+                    description="Extra metadata stored along with memorised information. Any json is accepted."
+                ),
+            ] = None,
         ) -> str:
             """
             Store some information in Qdrant.
@@ -90,8 +102,11 @@ class QdrantMCPServer(FastMCP):
 
         async def find(
             ctx: Context,
-            query: str,
-            collection_name: str,
+            query: Annotated[str, Field(description="What to search for")],
+            collection_name: Annotated[
+                str, Field(description="The collection to search in")
+            ],
+            query_filter: Optional[ArbitraryFilter] = None,
         ) -> List[str]:
             """
             Find memories in Qdrant.
@@ -101,6 +116,12 @@ class QdrantMCPServer(FastMCP):
                                     the default collection is used.
             :return: A list of entries found.
             """
+
+            # Log query_filter
+            await ctx.debug(f"Query filter: {query_filter}")
+
+            query_filter = models.Filter(**query_filter) if query_filter else None
+
             await ctx.debug(f"Finding results for query {query}")
             if collection_name:
                 await ctx.debug(
@@ -111,6 +132,7 @@ class QdrantMCPServer(FastMCP):
                 query,
                 collection_name=collection_name,
                 limit=self.qdrant_settings.search_limit,
+                query_filter=query_filter,
             )
             if not entries:
                 return [f"No information found for the query '{query}'"]
@@ -123,6 +145,15 @@ class QdrantMCPServer(FastMCP):
 
         find_foo = find
         store_foo = store
+
+        filterable_conditions = (
+            self.qdrant_settings.filterable_fields_dict_with_conditions()
+        )
+
+        if len(filterable_conditions) > 0:
+            find_foo = wrap_filters(find_foo, filterable_conditions)
+        elif not self.qdrant_settings.allow_arbitrary_filter:
+            find_foo = make_partial_function(find_foo, {"query_filter": None})
 
         if self.qdrant_settings.collection_name:
             find_foo = make_partial_function(

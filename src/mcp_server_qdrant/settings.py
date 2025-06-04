@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
@@ -14,6 +14,8 @@ DEFAULT_TOOL_FIND_DESCRIPTION = (
     " - Access memories for further analysis \n"
     " - Get some personal information about the user"
 )
+
+METADATA_PATH = "metadata"
 
 
 class ToolSettings(BaseSettings):
@@ -46,6 +48,29 @@ class EmbeddingProviderSettings(BaseSettings):
     )
 
 
+class FilterableField(BaseModel):
+    name: str = Field(description="The name of the field payload field to filter on")
+    description: str = Field(
+        description="A description for the field used in the tool description"
+    )
+    field_type: Literal["keyword", "integer", "float", "boolean"] = Field(
+        description="The type of the field"
+    )
+    condition: Optional[Literal["==", "!=", ">", ">=", "<", "<=", "any", "except"]] = (
+        Field(
+            default=None,
+            description=(
+                "The condition to use for the filter. If not provided, the field will be indexed, but no "
+                "filter argument will be exposed to MCP tool."
+            ),
+        )
+    )
+    required: bool = Field(
+        default=False,
+        description="Whether the field is required for the filter.",
+    )
+
+
 class QdrantSettings(BaseSettings):
     """
     Configuration for the Qdrant connector.
@@ -61,3 +86,23 @@ class QdrantSettings(BaseSettings):
     )
     search_limit: int = Field(default=10, validation_alias="QDRANT_SEARCH_LIMIT")
     read_only: bool = Field(default=False, validation_alias="QDRANT_READ_ONLY")
+
+    filterable_fields: Optional[list[FilterableField]] = Field(default=None)
+
+    allow_arbitrary_filter: bool = Field(
+        default=False, validation_alias="QDRANT_ALLOW_ARBITRARY_FILTER"
+    )
+
+    def filterable_fields_dict(self) -> dict[str, FilterableField]:
+        if self.filterable_fields is None:
+            return {}
+        return {field.name: field for field in self.filterable_fields}
+
+    def filterable_fields_dict_with_conditions(self) -> dict[str, FilterableField]:
+        if self.filterable_fields is None:
+            return {}
+        return {
+            field.name: field
+            for field in self.filterable_fields
+            if field.condition is not None
+        }
