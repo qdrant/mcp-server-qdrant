@@ -19,6 +19,7 @@ class Entry(BaseModel):
     A single entry in the Qdrant collection.
     """
 
+    id: str | None = None
     content: str
     metadata: Metadata | None = None
 
@@ -60,6 +61,15 @@ class QdrantConnector:
         response = await self._client.get_collections()
         return [collection.name for collection in response.collections]
 
+    async def get_collection_details(self, collection_name: str) -> dict[str, Any]:
+        """
+        Get detailed information about a specific collection.
+        :param collection_name: The name of the collection to get details for.
+        :return: A dictionary containing collection details.
+        """
+        collection_info = await self._client.get_collection(collection_name)
+        return collection_info.model_dump()
+
     async def store(self, entry: Entry, *, collection_name: str | None = None):
         """
         Store some information in the Qdrant collection, along with the specified metadata.
@@ -76,6 +86,7 @@ class QdrantConnector:
         # it should unlock usage of server-side inference.
         embeddings = await self._embedding_provider.embed_documents([entry.content])
 
+        point_id = uuid.uuid4().hex if entry.id is None else entry.id
         # Add to Qdrant
         vector_name = self._embedding_provider.get_vector_name()
         payload = {"document": entry.content, METADATA_PATH: entry.metadata}
@@ -83,7 +94,7 @@ class QdrantConnector:
             collection_name=collection_name,
             points=[
                 models.PointStruct(
-                    id=uuid.uuid4().hex,
+                    id=point_id,
                     vector={vector_name: embeddings[0]},
                     payload=payload,
                 )
@@ -109,6 +120,8 @@ class QdrantConnector:
         :return: A list of entries found.
         """
         collection_name = collection_name or self._default_collection_name
+        if collection_name is None:
+            return []
         collection_exists = await self._client.collection_exists(collection_name)
         if not collection_exists:
             return []
@@ -131,8 +144,9 @@ class QdrantConnector:
 
         return [
             Entry(
-                content=result.payload["document"],
-                metadata=result.payload.get("metadata"),
+                id=str(result.id),
+                content=result.payload["document"] if result.payload else "",
+                metadata=result.payload.get("metadata") if result.payload else None,
             )
             for result in search_results.points
         ]
@@ -168,3 +182,109 @@ class QdrantConnector:
                         field_name=field_name,
                         field_schema=field_type,
                     )
+
+    async def get_point_by_id(
+        self,
+        point_id: str,
+        *,
+        collection_name: str | None = None,
+    ) -> Entry | None:
+        """
+        Retrieve a specific point by its ID.
+        :param point_id: The ID of the point to retrieve.
+        :param collection_name: The name of the collection, optional.
+        :return: The entry if found, None otherwise.
+        """
+        collection_name = collection_name or self._default_collection_name
+        assert collection_name is not None
+
+        point = await self._client.retrieve(
+            collection_name=collection_name,
+            ids=[point_id],
+            with_payload=True,
+            with_vectors=False,
+        )
+
+        if point and len(point) > 0:
+            result = point[0]
+            return Entry(
+                id=str(result.id),
+                content=result.payload["document"] if result.payload else "",
+                metadata=result.payload.get("metadata") if result.payload else None,
+            )
+        return None
+
+    async def delete_point_by_id(
+        self,
+        point_id: str,
+        *,
+        collection_name: str | None = None,
+    ) -> bool:
+        """
+        Delete a specific point by its ID.
+        :param point_id: The ID of the point to delete.
+        :param collection_name: The name of the collection, optional.
+        :return: True if the point was deleted, False if not found.
+        """
+        collection_name = collection_name or self._default_collection_name
+        assert collection_name is not None
+
+        collection_exists = await self._client.collection_exists(collection_name)
+        if not collection_exists:
+            return False
+
+        # Check if point exists before trying to delete
+        existing_point = await self.get_point_by_id(
+            point_id, collection_name=collection_name
+        )
+        if existing_point is None:
+            return False
+
+        try:
+            await self._client.delete(
+                collection_name=collection_name,
+                points_selector=models.PointIdsList(points=[point_id]),
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete point {point_id}: {e}")
+            return False
+
+    async def update_point_payload(
+        self,
+        point_id: str,
+        metadata: Metadata,
+        *,
+        collection_name: str | None = None,
+    ) -> bool:
+        """
+        Update the payload (metadata) of a specific point by its ID.
+        :param point_id: The ID of the point to update.
+        :param metadata: New metadata to set for the point.
+        :param collection_name: The name of the collection, optional.
+        :return: True if the point was updated, False if not found.
+        """
+        collection_name = collection_name or self._default_collection_name
+        assert collection_name is not None
+
+        collection_exists = await self._client.collection_exists(collection_name)
+        if not collection_exists:
+            return False
+
+        # Check if point exists before trying to update
+        existing_point = await self.get_point_by_id(
+            point_id, collection_name=collection_name
+        )
+        if existing_point is None:
+            return False
+
+        try:
+            await self._client.set_payload(
+                collection_name=collection_name,
+                payload={METADATA_PATH: metadata},
+                points=[point_id],
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update payload for point {point_id}: {e}")
+            return False
