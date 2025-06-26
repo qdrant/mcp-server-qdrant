@@ -63,7 +63,7 @@ important ones are listed below:
 |---------------------------------------|-----------------------------------------------------------|---------------|
 | `FASTMCP_DEBUG`                       | Enable debug mode                                         | `false`       |
 | `FASTMCP_LOG_LEVEL`                   | Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) | `INFO`        |
-| `FASTMCP_HOST`                        | Host address to bind the server to                        | `0.0.0.0`     |
+| `FASTMCP_HOST`                        | Host address to bind the server to                        | `127.0.0.1`   |
 | `FASTMCP_PORT`                        | Port to run the server on                                 | `8000`        |
 | `FASTMCP_WARN_ON_DUPLICATE_RESOURCES` | Show warnings for duplicate resources                     | `true`        |
 | `FASTMCP_WARN_ON_DUPLICATE_TOOLS`     | Show warnings for duplicate tools                         | `true`        |
@@ -121,11 +121,16 @@ docker build -t mcp-server-qdrant .
 
 # Run the container
 docker run -p 8000:8000 \
+  -e FASTMCP_HOST="0.0.0.0" \
   -e QDRANT_URL="http://your-qdrant-server:6333" \
   -e QDRANT_API_KEY="your-api-key" \
   -e COLLECTION_NAME="your-collection" \
   mcp-server-qdrant
 ```
+
+> [!TIP]
+> Please note that we set `FASTMCP_HOST="0.0.0.0"` to make the server listen on all network interfaces. This is
+> necessary when running the server in a Docker container.
 
 ### Installing via Smithery
 
