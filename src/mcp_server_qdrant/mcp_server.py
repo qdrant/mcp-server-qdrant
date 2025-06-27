@@ -59,7 +59,8 @@ class QdrantMCPServer(FastMCP):
         Feel free to override this method in your subclass to customize the format of the entry.
         """
         entry_metadata = json.dumps(entry.metadata) if entry.metadata else ""
-        return f"<entry><content>{entry.content}</content><metadata>{entry_metadata}</metadata></entry>"
+        entry_id = f"<id>{entry.id}</id>" if entry.id else ""
+        return f"<entry>{entry_id}<content>{entry.content}</content><metadata>{entry_metadata}</metadata></entry>"
 
     def setup_tools(self):
         """
@@ -68,6 +69,10 @@ class QdrantMCPServer(FastMCP):
 
         async def store(
             ctx: Context,
+            id: Annotated[
+                str | None,
+                Field(description="Point ID. If omitted, a new point is created."),
+            ],
             information: Annotated[str, Field(description="Text to store")],
             collection_name: Annotated[
                 str, Field(description="The collection to store the information in")
@@ -93,7 +98,7 @@ class QdrantMCPServer(FastMCP):
             """
             await ctx.debug(f"Storing information {information} in Qdrant")
 
-            entry = Entry(content=information, metadata=metadata)
+            entry = Entry(content=information, metadata=metadata, id=id)
 
             await self.qdrant_connector.store(entry, collection_name=collection_name)
             if collection_name:
@@ -160,10 +165,129 @@ class QdrantMCPServer(FastMCP):
                 store_foo, {"collection_name": self.qdrant_settings.collection_name}
             )
 
+        # Add new tools for point operations
+        async def get_point(
+            ctx: Context,
+            point_id: Annotated[
+                str, Field(description="The ID of the point to retrieve")
+            ],
+            collection_name: Annotated[
+                str, Field(description="The collection to get the point from")
+            ],
+        ) -> str:
+            """
+            Get a specific point by its ID.
+            :param ctx: The context for the request.
+            :param point_id: The ID of the point to retrieve.
+            :param collection_name: The name of the collection to get the point from.
+            :return: The point information or error message.
+            """
+            await ctx.debug(
+                f"Getting point {point_id} from collection {collection_name}"
+            )
+
+            entry = await self.qdrant_connector.get_point_by_id(
+                point_id, collection_name=collection_name
+            )
+
+            if entry:
+                return self.format_entry(entry)
+            else:
+                return f"Point with ID {point_id} not found in collection {collection_name}"
+
+        async def delete_point(
+            ctx: Context,
+            point_id: Annotated[
+                str, Field(description="The ID of the point to delete")
+            ],
+            collection_name: Annotated[
+                str, Field(description="The collection to delete the point from")
+            ],
+        ) -> str:
+            """
+            Delete a specific point by its ID.
+            :param ctx: The context for the request.
+            :param point_id: The ID of the point to delete.
+            :param collection_name: The name of the collection to delete the point from.
+            :return: Success or error message.
+            """
+            await ctx.debug(
+                f"Deleting point {point_id} from collection {collection_name}"
+            )
+
+            success = await self.qdrant_connector.delete_point_by_id(
+                point_id, collection_name=collection_name
+            )
+
+            if success:
+                return f"Successfully deleted point {point_id} from collection {collection_name}"
+            else:
+                return f"Failed to delete point {point_id} - point not found or collection doesn't exist"
+
+        async def update_point_payload(
+            ctx: Context,
+            point_id: Annotated[
+                str, Field(description="The ID of the point to update")
+            ],
+            collection_name: Annotated[
+                str, Field(description="The collection containing the point")
+            ],
+            metadata: Annotated[
+                Metadata,
+                Field(
+                    description="New metadata to set for the point. Any json is accepted."
+                ),
+            ],
+        ) -> str:
+            """
+            Update the payload (metadata) of a specific point by its ID.
+            :param ctx: The context for the request.
+            :param point_id: The ID of the point to update.
+            :param collection_name: The name of the collection containing the point.
+            :param metadata: New metadata to set for the point.
+            :return: Success or error message.
+            """
+            await ctx.debug(
+                f"Updating payload for point {point_id} in collection {collection_name}"
+            )
+
+            success = await self.qdrant_connector.update_point_payload(
+                point_id, metadata, collection_name=collection_name
+            )
+
+            if success:
+                return f"Successfully updated payload for point {point_id} in collection {collection_name}"
+            else:
+                return f"Failed to update payload for point {point_id} - point not found or collection doesn't exist"
+
+        # Apply collection name defaults to new tools
+        get_point_foo = get_point
+        delete_point_foo = delete_point
+        update_point_payload_foo = update_point_payload
+
+        if self.qdrant_settings.collection_name:
+            get_point_foo = make_partial_function(
+                get_point_foo, {"collection_name": self.qdrant_settings.collection_name}
+            )
+            delete_point_foo = make_partial_function(
+                delete_point_foo,
+                {"collection_name": self.qdrant_settings.collection_name},
+            )
+            update_point_payload_foo = make_partial_function(
+                update_point_payload_foo,
+                {"collection_name": self.qdrant_settings.collection_name},
+            )
+
         self.tool(
             find_foo,
             name="qdrant-find",
             description=self.tool_settings.tool_find_description,
+        )
+
+        self.tool(
+            get_point_foo,
+            name="qdrant-get-point",
+            description="Get a specific point by its ID from a Qdrant collection.",
         )
 
         if not self.qdrant_settings.read_only:
@@ -172,4 +296,16 @@ class QdrantMCPServer(FastMCP):
                 store_foo,
                 name="qdrant-store",
                 description=self.tool_settings.tool_store_description,
+            )
+
+            self.tool(
+                delete_point_foo,
+                name="qdrant-delete-point",
+                description="Delete a specific point by its ID from a Qdrant collection.",
+            )
+
+            self.tool(
+                update_point_payload_foo,
+                name="qdrant-update-point-payload",
+                description="Update the payload (metadata) of a specific point by its ID.",
             )
