@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, Union
 
 from fastmcp import Context, FastMCP
 from pydantic import Field
@@ -76,7 +76,7 @@ class QdrantMCPServer(FastMCP):
             # If we set it to be optional, some of the MCP clients, like Cursor, cannot
             # handle the optional parameter correctly.
             metadata: Annotated[
-                Metadata | None,
+                Union[Metadata, str, None],
                 Field(
                     description="Extra metadata stored along with memorised information. Any json is accepted."
                 ),
@@ -92,6 +92,20 @@ class QdrantMCPServer(FastMCP):
             :return: A message indicating that the information was stored.
             """
             await ctx.debug(f"Storing information {information} in Qdrant")
+            
+            # Десериализация metadata если это строка
+            if isinstance(metadata, str):
+                try:
+                    if metadata.lower().strip() in ['null', 'none', '']:
+                        metadata = None
+                    else:
+                        metadata = json.loads(metadata)
+                except json.JSONDecodeError:
+                    raise ValueError(f"Invalid JSON in metadata: {metadata}")
+            
+            # Валидация типа metadata после десериализации
+            if metadata is not None and not isinstance(metadata, dict):
+                raise TypeError(f"Metadata must be a dictionary, got {type(metadata)}")
 
             entry = Entry(content=information, metadata=metadata)
 
