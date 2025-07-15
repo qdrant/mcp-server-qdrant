@@ -6,7 +6,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir uv
 
 # Install the mcp-server-qdrant package
-RUN uv pip install --system --no-cache-dir mcp-server-qdrant
+RUN uv tool install --no-cache-dir mcp-server-qdrant
 
 # Expose the default port for SSE transport
 EXPOSE 8000
