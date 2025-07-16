@@ -6,7 +6,7 @@ WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Install the mcp-server-qdrant package
-RUN uv tool install --no-cache-dir mcp-server-qdrant
+RUN uv tool install --no-cache mcp-server-qdrant
 
 # Expose the default port for SSE transport
 EXPOSE 8000
