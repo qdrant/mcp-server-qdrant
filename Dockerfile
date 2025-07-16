@@ -3,7 +3,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install uv for package management
-RUN pip install --no-cache-dir uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Install the mcp-server-qdrant package
 RUN uv tool install --no-cache-dir mcp-server-qdrant
