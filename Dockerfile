@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
@@ -12,9 +12,7 @@ RUN uv tool install --no-cache mcp-server-qdrant
 EXPOSE 8000
 
 # Set environment variables with defaults that can be overridden at runtime
-ENV COLLECTION_NAME="default-collection" \
-    EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2" \
-    FASTMCP_HOST="0.0.0.0"
+ENV FASTMCP_HOST="0.0.0.0"
 
 # Run the server with SSE transport
 CMD ["uvx", "mcp-server-qdrant", "--transport", "sse"]
