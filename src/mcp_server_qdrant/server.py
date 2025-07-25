@@ -7,6 +7,6 @@ from mcp_server_qdrant.settings import (
 
 mcp = QdrantMCPServer(
     tool_settings=ToolSettings(),
-    qdrant_settings=QdrantSettings(),
+    qdrant_settings=QdrantSettings(_env_parse_none_str="None"),
     embedding_provider_settings=EmbeddingProviderSettings(),
 )
