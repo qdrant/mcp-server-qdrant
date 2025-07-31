@@ -12,6 +12,19 @@ def create_embedding_provider(settings: EmbeddingProviderSettings) -> EmbeddingP
     if settings.provider_type == EmbeddingProviderType.FASTEMBED:
         from mcp_server_qdrant.embeddings.fastembed import FastEmbedProvider
 
-        return FastEmbedProvider(settings.model_name)
+        provider = FastEmbedProvider(settings.model_name)
+        
+        # Wrap with UnnamedVectorProvider if requested
+        if settings.use_unnamed_vectors:
+            from mcp_server_qdrant.embeddings.unnamed import UnnamedVectorProvider
+            provider = UnnamedVectorProvider(provider)
+        
+        return provider
+    elif settings.provider_type == EmbeddingProviderType.FASTEMBED_UNNAMED:
+        from mcp_server_qdrant.embeddings.fastembed import FastEmbedProvider
+        from mcp_server_qdrant.embeddings.unnamed import UnnamedVectorProvider
+
+        base_provider = FastEmbedProvider(settings.model_name)
+        return UnnamedVectorProvider(base_provider)
     else:
         raise ValueError(f"Unsupported embedding provider: {settings.provider_type}")

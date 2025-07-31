@@ -79,16 +79,30 @@ class QdrantConnector:
         # Add to Qdrant
         vector_name = self._embedding_provider.get_vector_name()
         payload = {"document": entry.content, METADATA_PATH: entry.metadata}
-        await self._client.upsert(
-            collection_name=collection_name,
-            points=[
-                models.PointStruct(
-                    id=uuid.uuid4().hex,
-                    vector={vector_name: embeddings[0]},
-                    payload=payload,
-                )
-            ],
-        )
+        
+        # Handle unnamed vectors
+        if vector_name == "unnamed_vector":
+            await self._client.upsert(
+                collection_name=collection_name,
+                points=[
+                    models.PointStruct(
+                        id=uuid.uuid4().hex,
+                        vector=embeddings[0],  # Direct vector without name
+                        payload=payload,
+                    )
+                ],
+            )
+        else:
+            await self._client.upsert(
+                collection_name=collection_name,
+                points=[
+                    models.PointStruct(
+                        id=uuid.uuid4().hex,
+                        vector={vector_name: embeddings[0]},
+                        payload=payload,
+                    )
+                ],
+            )
 
     async def search(
         self,
@@ -121,13 +135,22 @@ class QdrantConnector:
         vector_name = self._embedding_provider.get_vector_name()
 
         # Search in Qdrant
-        search_results = await self._client.query_points(
-            collection_name=collection_name,
-            query=query_vector,
-            using=vector_name,
-            limit=limit,
-            query_filter=query_filter,
-        )
+        if vector_name == "unnamed_vector":
+            # For unnamed vectors, don't specify the 'using' parameter
+            search_results = await self._client.query_points(
+                collection_name=collection_name,
+                query=query_vector,
+                limit=limit,
+                query_filter=query_filter,
+            )
+        else:
+            search_results = await self._client.query_points(
+                collection_name=collection_name,
+                query=query_vector,
+                using=vector_name,
+                limit=limit,
+                query_filter=query_filter,
+            )
 
         return [
             Entry(
@@ -149,15 +172,26 @@ class QdrantConnector:
 
             # Use the vector name as defined in the embedding provider
             vector_name = self._embedding_provider.get_vector_name()
-            await self._client.create_collection(
-                collection_name=collection_name,
-                vectors_config={
-                    vector_name: models.VectorParams(
+            
+            if vector_name == "unnamed_vector":
+                # For unnamed vectors, use the simple vector config
+                await self._client.create_collection(
+                    collection_name=collection_name,
+                    vectors_config=models.VectorParams(
                         size=vector_size,
                         distance=models.Distance.COSINE,
-                    )
-                },
-            )
+                    ),
+                )
+            else:
+                await self._client.create_collection(
+                    collection_name=collection_name,
+                    vectors_config={
+                        vector_name: models.VectorParams(
+                            size=vector_size,
+                            distance=models.Distance.COSINE,
+                        )
+                    },
+                )
 
             # Create payload indexes if configured
 

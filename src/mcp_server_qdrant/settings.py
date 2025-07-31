@@ -46,6 +46,11 @@ class EmbeddingProviderSettings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
     )
+    use_unnamed_vectors: bool = Field(
+        default=False,
+        validation_alias="USE_UNNAMED_VECTORS",
+        description="Use unnamed vectors instead of named vectors in Qdrant collections",
+    )
 
 
 class FilterableField(BaseModel):
