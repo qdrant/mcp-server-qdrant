@@ -78,7 +78,8 @@ class QdrantConnector:
 
         # Add to Qdrant
         vector_name = self._embedding_provider.get_vector_name()
-        payload = {"document": entry.content, METADATA_PATH: entry.metadata}
+        # Use 'text' field to match existing Diolog data structure
+        payload = {"text": entry.content, "document": entry.content, METADATA_PATH: entry.metadata}
         
         # Handle unnamed vectors
         if vector_name == "unnamed_vector":
@@ -154,8 +155,8 @@ class QdrantConnector:
 
         return [
             Entry(
-                content=result.payload["document"],
-                metadata=result.payload.get("metadata"),
+                content=result.payload.get("text", result.payload.get("document", str(result.payload))),
+                metadata=result.payload.get("metadata", result.payload),
             )
             for result in search_results.points
         ]
