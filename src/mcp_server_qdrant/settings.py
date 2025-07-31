@@ -22,6 +22,8 @@ class ToolSettings(BaseSettings):
     """
     Configuration for all the tools.
     """
+    
+    model_config = {"extra": "ignore"}
 
     tool_store_description: str = Field(
         default=DEFAULT_TOOL_STORE_DESCRIPTION,
@@ -37,6 +39,8 @@ class EmbeddingProviderSettings(BaseSettings):
     """
     Configuration for the embedding provider.
     """
+    
+    model_config = {"extra": "ignore"}
 
     provider_type: EmbeddingProviderType = Field(
         default=EmbeddingProviderType.FASTEMBED,
@@ -80,6 +84,8 @@ class QdrantSettings(BaseSettings):
     """
     Configuration for the Qdrant connector.
     """
+    
+    model_config = {"extra": "ignore"}
 
     location: str | None = Field(default=None, validation_alias="QDRANT_URL")
     api_key: str | None = Field(default=None, validation_alias="QDRANT_API_KEY")
