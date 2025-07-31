@@ -152,24 +152,53 @@ class QdrantMCPServer(FastMCP):
         elif not self.qdrant_settings.allow_arbitrary_filter:
             find_foo = make_partial_function(find_foo, {"query_filter": None})
 
-        if self.qdrant_settings.collection_name:
+        # Handle multiple collections
+        if self.qdrant_settings.collection_names:
+            # Multiple collections specified - add collection_name as a required parameter
+            self.tool(
+                find_foo,
+                name="qdrant-find",
+                description=self.tool_settings.tool_find_description + f"\n\nAvailable collections: {', '.join(self.qdrant_settings.collection_names)}",
+            )
+            
+            if not self.qdrant_settings.read_only:
+                self.tool(
+                    store_foo,
+                    name="qdrant-store",
+                    description=self.tool_settings.tool_store_description + f"\n\nAvailable collections: {', '.join(self.qdrant_settings.collection_names)}",
+                )
+        elif self.qdrant_settings.collection_name:
+            # Single collection specified - fix it as default
             find_foo = make_partial_function(
                 find_foo, {"collection_name": self.qdrant_settings.collection_name}
             )
             store_foo = make_partial_function(
                 store_foo, {"collection_name": self.qdrant_settings.collection_name}
             )
-
-        self.tool(
-            find_foo,
-            name="qdrant-find",
-            description=self.tool_settings.tool_find_description,
-        )
-
-        if not self.qdrant_settings.read_only:
-            # Those methods can modify the database
+            
             self.tool(
-                store_foo,
-                name="qdrant-store",
-                description=self.tool_settings.tool_store_description,
+                find_foo,
+                name="qdrant-find",
+                description=self.tool_settings.tool_find_description,
             )
+            
+            if not self.qdrant_settings.read_only:
+                self.tool(
+                    store_foo,
+                    name="qdrant-store",
+                    description=self.tool_settings.tool_store_description,
+                )
+        else:
+            # No collection specified - collection_name is required parameter
+            self.tool(
+                find_foo,
+                name="qdrant-find",
+                description=self.tool_settings.tool_find_description,
+            )
+            
+            if not self.qdrant_settings.read_only:
+                self.tool(
+                    store_foo,
+                    name="qdrant-store",
+                    description=self.tool_settings.tool_store_description,
+                )

@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 from pydantic_settings import BaseSettings
 
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
@@ -92,6 +92,11 @@ class QdrantSettings(BaseSettings):
     collection_name: str | None = Field(
         default=None, validation_alias="COLLECTION_NAME"
     )
+    collection_names: list[str] | None = Field(
+        default=None, 
+        validation_alias="COLLECTION_NAMES",
+        description="Comma-separated list of collection names to make available"
+    )
     local_path: str | None = Field(default=None, validation_alias="QDRANT_LOCAL_PATH")
     search_limit: int = Field(default=10, validation_alias="QDRANT_SEARCH_LIMIT")
     read_only: bool = Field(default=False, validation_alias="QDRANT_READ_ONLY")
@@ -115,6 +120,13 @@ class QdrantSettings(BaseSettings):
             for field in self.filterable_fields
             if field.condition is not None
         }
+
+    @field_validator("collection_names", mode="before")
+    @classmethod
+    def parse_collection_names(cls, v):
+        if isinstance(v, str):
+            return [name.strip() for name in v.split(",") if name.strip()]
+        return v
 
     @model_validator(mode="after")
     def check_local_path_conflict(self) -> "QdrantSettings":
