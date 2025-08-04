@@ -33,6 +33,53 @@ class ToolSettings(BaseSettings):
     )
 
 
+class CustomModelSettings(BaseModel):
+    """
+    Configuration for custom FastEmbed models using add_custom_model.
+    """
+    
+    model_name: str | None = Field(
+        default=None, 
+        description="The name/identifier for the custom model"
+    )
+    hf_model_id: str | None = Field(
+        default=None, 
+        description="HuggingFace model ID for the custom model"
+    )
+    model_url: str | None = Field(
+        default=None,
+        description="Direct URL to model files (alternative to HuggingFace)"
+    )
+    pooling_type: str = Field(
+        default="MEAN",
+        description="Pooling type: MEAN, CLS, MAX"
+    )
+    normalization: bool = Field(
+        default=True,
+        description="Whether to normalize embeddings"
+    )
+    vector_dimension: int | None = Field(
+        default=None,
+        description="Dimension of the embedding vectors"
+    )
+    model_file: str | None = Field(
+        default=None,
+        description="Path to the model file within the model directory"
+    )
+
+    @model_validator(mode="after")
+    def check_model_source(self) -> "CustomModelSettings":
+        if not self.hf_model_id and not self.model_url:
+            raise ValueError(
+                "Either 'hf_model_id' or 'model_url' must be provided for custom model"
+            )
+        if self.hf_model_id and self.model_url:
+            raise ValueError(
+                "Only one of 'hf_model_id' or 'model_url' should be provided"
+            )
+        return self
+
+
 class EmbeddingProviderSettings(BaseSettings):
     """
     Configuration for the embedding provider.
@@ -46,6 +93,61 @@ class EmbeddingProviderSettings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
     )
+    
+    # Custom model configuration
+    use_custom_model: bool = Field(
+        default=False,
+        validation_alias="EMBEDDING_USE_CUSTOM_MODEL",
+    )
+    custom_model_name: str | None = Field(
+        default=None,
+        validation_alias="EMBEDDING_CUSTOM_MODEL_NAME",
+    )
+    custom_hf_model_id: str | None = Field(
+        default=None,
+        validation_alias="EMBEDDING_CUSTOM_HF_MODEL_ID",
+    )
+    custom_model_url: str | None = Field(
+        default=None,
+        validation_alias="EMBEDDING_CUSTOM_MODEL_URL",
+    )
+    custom_pooling_type: str = Field(
+        default="MEAN",
+        validation_alias="EMBEDDING_CUSTOM_POOLING_TYPE",
+    )
+    custom_normalization: bool = Field(
+        default=True,
+        validation_alias="EMBEDDING_CUSTOM_NORMALIZATION",
+    )
+    custom_vector_dimension: int | None = Field(
+        default=None,
+        validation_alias="EMBEDDING_CUSTOM_VECTOR_DIMENSION",
+    )
+    custom_model_file: str = Field(
+        default="onnx/model.onnx",
+        validation_alias="EMBEDDING_CUSTOM_MODEL_FILE",
+    )
+
+    def get_custom_model_settings(self) -> CustomModelSettings | None:
+        """Get custom model settings if custom model is enabled."""
+        if not self.use_custom_model:
+            return None
+        
+        if not self.custom_model_name:
+            raise ValueError("custom_model_name is required when use_custom_model is True")
+        
+        if not self.custom_vector_dimension:
+            raise ValueError("custom_vector_dimension is required when use_custom_model is True")
+        
+        return CustomModelSettings(
+            model_name=self.custom_model_name,
+            hf_model_id=self.custom_hf_model_id,
+            model_url=self.custom_model_url,
+            pooling_type=self.custom_pooling_type,
+            normalization=self.custom_normalization,
+            vector_dimension=self.custom_vector_dimension,
+            model_file=self.custom_model_file,
+        )
 
 
 class FilterableField(BaseModel):

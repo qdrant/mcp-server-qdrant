@@ -49,6 +49,23 @@ The configuration of the server is done using environment variables:
 | `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 
+### Custom Model Configuration
+
+The server supports custom embedding models through FastEmbed's `add_custom_model` functionality. To use a custom model:
+
+| Name                                  | Description                                               | Default Value |
+|---------------------------------------|-----------------------------------------------------------|---------------|
+| `EMBEDDING_USE_CUSTOM_MODEL`          | Enable custom model mode (`true`/`false`)                | `false`       |
+| `EMBEDDING_CUSTOM_MODEL_NAME`         | Unique name for your custom model                        | None          |
+| `EMBEDDING_CUSTOM_HF_MODEL_ID`        | HuggingFace model ID                                      | None          |
+| `EMBEDDING_CUSTOM_VECTOR_DIMENSION`   | Output dimension of the custom model                     | None          |
+| `EMBEDDING_CUSTOM_POOLING_TYPE`       | Pooling strategy (MEAN, CLS, MAX, etc.)                  | `MEAN`        |
+| `EMBEDDING_CUSTOM_NORMALIZATION`      | Whether to normalize embeddings (`true`/`false`)         | `true`        |
+| `EMBEDDING_CUSTOM_MODEL_FILE`         | Specific model file to use (e.g., `onnx/model.onnx`)     | None          |
+| `EMBEDDING_CUSTOM_MODEL_URL`          | Direct URL to download the model                         | None          |
+
+See [docs/CUSTOM_MODELS.md](docs/CUSTOM_MODELS.md) for detailed configuration examples and troubleshooting.
+
 Note: You cannot provide both `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
 
 > [!IMPORTANT]
