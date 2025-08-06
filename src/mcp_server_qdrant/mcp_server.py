@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, Optional
 
 from fastmcp import Context, FastMCP
 from pydantic import Field
@@ -9,6 +9,7 @@ from qdrant_client import models
 from mcp_server_qdrant.common.filters import make_indexes
 from mcp_server_qdrant.common.func_tools import make_partial_function
 from mcp_server_qdrant.common.wrap_filters import wrap_filters
+from mcp_server_qdrant.embeddings.base import EmbeddingProvider
 from mcp_server_qdrant.embeddings.factory import create_embedding_provider
 from mcp_server_qdrant.qdrant import ArbitraryFilter, Entry, Metadata, QdrantConnector
 from mcp_server_qdrant.settings import (
@@ -31,16 +32,39 @@ class QdrantMCPServer(FastMCP):
         self,
         tool_settings: ToolSettings,
         qdrant_settings: QdrantSettings,
-        embedding_provider_settings: EmbeddingProviderSettings,
+        embedding_provider_settings: Optional[EmbeddingProviderSettings] = None,
+        embedding_provider: Optional[EmbeddingProvider] = None,
         name: str = "mcp-server-qdrant",
         instructions: str | None = None,
         **settings: Any,
     ):
         self.tool_settings = tool_settings
         self.qdrant_settings = qdrant_settings
-        self.embedding_provider_settings = embedding_provider_settings
 
-        self.embedding_provider = create_embedding_provider(embedding_provider_settings)
+        if embedding_provider_settings and embedding_provider:
+            raise ValueError(
+                "Cannot provide both embedding_provider_settings and embedding_provider"
+            )
+
+        if not embedding_provider_settings and not embedding_provider:
+            raise ValueError(
+                "Must provide either embedding_provider_settings or embedding_provider"
+            )
+
+        self.embedding_provider_settings: Optional[EmbeddingProviderSettings] = None
+        self.embedding_provider: Optional[EmbeddingProvider] = None
+
+        if embedding_provider_settings:
+            self.embedding_provider_settings = embedding_provider_settings
+            self.embedding_provider = create_embedding_provider(
+                embedding_provider_settings
+            )
+        else:
+            self.embedding_provider_settings = None
+            self.embedding_provider = embedding_provider
+
+        assert self.embedding_provider is not None, "Embedding provider is required"
+
         self.qdrant_connector = QdrantConnector(
             qdrant_settings.location,
             qdrant_settings.api_key,
