@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import List, Literal
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings
@@ -66,6 +66,11 @@ class CustomModelSettings(BaseModel):
         default=None,
         description="Path to the model file within the model directory"
     )
+    additional_files: List[str] | None = Field(
+        default=None,
+        description="Path to additional files within the model directory"
+    )
+
 
     @model_validator(mode="after")
     def check_model_source(self) -> "CustomModelSettings":
@@ -127,6 +132,10 @@ class EmbeddingProviderSettings(BaseSettings):
         default="onnx/model.onnx",
         validation_alias="EMBEDDING_CUSTOM_MODEL_FILE",
     )
+    custom_additional_files: str | None = Field(
+        default=None,
+        validation_alias="EMBEDDING_CUSTOM_ADDITIONAL_FILES",
+    )
 
     def get_custom_model_settings(self) -> CustomModelSettings | None:
         """Get custom model settings if custom model is enabled."""
@@ -139,6 +148,11 @@ class EmbeddingProviderSettings(BaseSettings):
         if not self.custom_vector_dimension:
             raise ValueError("custom_vector_dimension is required when use_custom_model is True")
         
+        # Parse additional files from comma-separated string
+        additional_files = None
+        if self.custom_additional_files:
+            additional_files = [f.strip() for f in self.custom_additional_files.split(",")]
+        
         return CustomModelSettings(
             model_name=self.custom_model_name,
             hf_model_id=self.custom_hf_model_id,
@@ -147,6 +161,7 @@ class EmbeddingProviderSettings(BaseSettings):
             normalization=self.custom_normalization,
             vector_dimension=self.custom_vector_dimension,
             model_file=self.custom_model_file,
+            additional_files=additional_files,
         )
 
 

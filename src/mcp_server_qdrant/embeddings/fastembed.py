@@ -51,6 +51,7 @@ class FastEmbedProvider(EmbeddingProvider):
                 sources=model_source,
                 dim=settings.vector_dimension,
                 model_file=settings.model_file,
+                additional_files=settings.additional_files,
             )
             
             logger.info(f"Successfully registered custom model '{settings.model_name}'")
