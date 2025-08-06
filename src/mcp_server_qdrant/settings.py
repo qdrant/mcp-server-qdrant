@@ -70,6 +70,10 @@ class CustomModelSettings(BaseModel):
         default=None,
         description="Path to additional files within the model directory"
     )
+    cache_dir: str | None = Field(
+        default=None,
+        description="Path to the cache directory for the custom model"
+    )
 
 
     @model_validator(mode="after")
@@ -136,6 +140,11 @@ class EmbeddingProviderSettings(BaseSettings):
         default=None,
         validation_alias="EMBEDDING_CUSTOM_ADDITIONAL_FILES",
     )
+    custom_cache_dir: str | None = Field(
+        default=None,
+        validation_alias="EMBEDDING_CUSTOM_CACHE_DIR",
+    )
+
 
     def get_custom_model_settings(self) -> CustomModelSettings | None:
         """Get custom model settings if custom model is enabled."""
@@ -162,6 +171,7 @@ class EmbeddingProviderSettings(BaseSettings):
             vector_dimension=self.custom_vector_dimension,
             model_file=self.custom_model_file,
             additional_files=additional_files,
+            cache_dir=self.custom_cache_dir,
         )
 
 

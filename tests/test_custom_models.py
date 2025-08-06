@@ -21,6 +21,7 @@ class TestCustomModelIntegration:
             "EMBEDDING_CUSTOM_NORMALIZATION": "false",
             "EMBEDDING_CUSTOM_MODEL_FILE": "onnx/model.onnx",
             "EMBEDDING_CUSTOM_ADDITIONAL_FILES": "tokenizer.json,config.json",
+            "EMBEDDING_CUSTOM_CACHE_DIR": "/tmp/custom_cache",
         }
 
         with patch.dict(os.environ, env_vars, clear=False):
@@ -33,6 +34,7 @@ class TestCustomModelIntegration:
             assert settings.custom_normalization is False
             assert settings.custom_model_file == "onnx/model.onnx"
             assert settings.custom_additional_files == "tokenizer.json,config.json"
+            assert settings.custom_cache_dir == "/tmp/custom_cache"
 
             custom_settings = settings.get_custom_model_settings()
             assert custom_settings.additional_files == ["tokenizer.json", "config.json"]
@@ -54,6 +56,7 @@ class TestCustomModelIntegration:
             assert settings.custom_model_file == "onnx/model.onnx"
             assert settings.custom_model_url is None
             assert settings.custom_additional_files is None
+            assert settings.custom_cache_dir is None
 
     @patch("mcp_server_qdrant.embeddings.fastembed.TextEmbedding")
     @patch.object(FastEmbedProvider, "_register_custom_model")
@@ -82,7 +85,7 @@ class TestCustomModelIntegration:
             )
             _ = create_embedding_provider(settings)
             mock_register.assert_called_once_with(expected)
-            mock_text_embedding.assert_called_once_with("test-model")
+            mock_text_embedding.assert_called_once_with(model_name="test-model", cache_dir=None)
 
     @patch("mcp_server_qdrant.embeddings.fastembed.TextEmbedding")
     @patch.object(FastEmbedProvider, "_register_custom_model")

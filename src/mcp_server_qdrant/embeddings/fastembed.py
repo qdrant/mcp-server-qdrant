@@ -20,14 +20,19 @@ class FastEmbedProvider(EmbeddingProvider):
     def __init__(self, model_name: str, custom_model_settings: CustomModelSettings | None = None):
         self.model_name = model_name
         self.custom_model_settings = custom_model_settings
+        self._cache_dir = None
         
         # Register custom model if provided
         if custom_model_settings:
             self._register_custom_model(custom_model_settings)
             self.model_name = custom_model_settings.model_name
             logger.info(f"Registered custom model: {self.model_name}")
+            self._cache_dir = custom_model_settings.cache_dir
         
-        self.embedding_model = TextEmbedding(self.model_name)
+        self.embedding_model = TextEmbedding(
+            model_name=self.model_name,
+            cache_dir=self._cache_dir
+        )
 
     def _register_custom_model(self, settings: CustomModelSettings) -> None:
         """Register a custom model with FastEmbed."""

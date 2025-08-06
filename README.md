@@ -64,6 +64,7 @@ The server supports custom embedding models through FastEmbed's `add_custom_mode
 | `EMBEDDING_CUSTOM_MODEL_FILE`         | Specific model file to use (e.g., `onnx/model.onnx`)     | None          |
 | `EMBEDDING_CUSTOM_MODEL_URL`          | Direct URL to download the model                         | None          |
 | `EMBEDDING_CUSTOM_ADDITIONAL_FILES` | Comma-separated list of additional files to download | None |
+| `EMBEDDING_CUSTOM_CACHE_DIR` | Custom cache directory for storing model files | None |
 
 See [docs/CUSTOM_MODELS.md](docs/CUSTOM_MODELS.md) for detailed configuration examples and troubleshooting.
 
