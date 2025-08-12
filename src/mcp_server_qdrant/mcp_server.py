@@ -131,7 +131,7 @@ class QdrantMCPServer(FastMCP):
                 str, Field(description="The collection to search in")
             ],
             query_filter: ArbitraryFilter | None = None,
-        ) -> list[str]:
+        ) -> list[str] | None:
             """
             Find memories in Qdrant.
             :param ctx: The context for the request.
@@ -139,7 +139,7 @@ class QdrantMCPServer(FastMCP):
             :param collection_name: The name of the collection to search in, optional. If not provided,
                                     the default collection is used.
             :param query_filter: The filter to apply to the query.
-            :return: A list of entries found.
+            :return: A list of entries found or None.
             """
 
             # Log query_filter
@@ -156,7 +156,7 @@ class QdrantMCPServer(FastMCP):
                 query_filter=query_filter,
             )
             if not entries:
-                return [f"No information found for the query '{query}'"]
+                return None
             content = [
                 f"Results for the query '{query}'",
             ]
