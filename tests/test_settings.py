@@ -78,6 +78,37 @@ class TestEmbeddingProviderSettings:
         assert settings.provider_type == EmbeddingProviderType.FASTEMBED
         assert settings.model_name == "custom_model"
 
+    def test_model2vec_provider_type(self, monkeypatch):
+        """Test setting provider type to MODEL2VEC."""
+        monkeypatch.setenv("EMBEDDING_PROVIDER", "model2vec")
+        settings = EmbeddingProviderSettings()
+        assert settings.provider_type == EmbeddingProviderType.MODEL2VEC
+        assert settings.model_name == "sentence-transformers/all-MiniLM-L6-v2"  # Default model
+
+    def test_model2vec_with_custom_model(self, monkeypatch):
+        """Test MODEL2VEC provider with custom model."""
+        monkeypatch.setenv("EMBEDDING_PROVIDER", "model2vec")
+        monkeypatch.setenv("EMBEDDING_MODEL", "minishlab/potion-base-8M")
+        settings = EmbeddingProviderSettings()
+        assert settings.provider_type == EmbeddingProviderType.MODEL2VEC
+        assert settings.model_name == "minishlab/potion-base-8M"
+
+    def test_model2vec_with_different_models(self, monkeypatch):
+        """Test MODEL2VEC provider with various model names."""
+        test_models = [
+            "minishlab/potion-base-8M",
+            "minishlab/potion-base-4M",
+            "custom/model2vec-model",
+        ]
+        
+        monkeypatch.setenv("EMBEDDING_PROVIDER", "model2vec")
+        
+        for model in test_models:
+            monkeypatch.setenv("EMBEDDING_MODEL", model)
+            settings = EmbeddingProviderSettings()
+            assert settings.provider_type == EmbeddingProviderType.MODEL2VEC
+            assert settings.model_name == model
+
 
 class TestToolSettings:
     def test_default_values(self):
