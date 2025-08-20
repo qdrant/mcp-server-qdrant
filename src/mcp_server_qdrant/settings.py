@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 from pydantic_settings import BaseSettings
 
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
@@ -22,6 +22,8 @@ class ToolSettings(BaseSettings):
     """
     Configuration for all the tools.
     """
+    
+    model_config = {"extra": "ignore"}
 
     tool_store_description: str = Field(
         default=DEFAULT_TOOL_STORE_DESCRIPTION,
@@ -37,6 +39,8 @@ class EmbeddingProviderSettings(BaseSettings):
     """
     Configuration for the embedding provider.
     """
+    
+    model_config = {"extra": "ignore"}
 
     provider_type: EmbeddingProviderType = Field(
         default=EmbeddingProviderType.FASTEMBED,
@@ -45,6 +49,11 @@ class EmbeddingProviderSettings(BaseSettings):
     model_name: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
+    )
+    use_unnamed_vectors: bool = Field(
+        default=False,
+        validation_alias="USE_UNNAMED_VECTORS",
+        description="Use unnamed vectors instead of named vectors in Qdrant collections",
     )
 
 
@@ -75,11 +84,18 @@ class QdrantSettings(BaseSettings):
     """
     Configuration for the Qdrant connector.
     """
+    
+    model_config = {"extra": "ignore"}
 
     location: str | None = Field(default=None, validation_alias="QDRANT_URL")
     api_key: str | None = Field(default=None, validation_alias="QDRANT_API_KEY")
     collection_name: str | None = Field(
         default=None, validation_alias="COLLECTION_NAME"
+    )
+    collection_names: list[str] | None = Field(
+        default=None, 
+        validation_alias="COLLECTION_NAMES",
+        description="Comma-separated list of collection names to make available"
     )
     local_path: str | None = Field(default=None, validation_alias="QDRANT_LOCAL_PATH")
     search_limit: int = Field(default=10, validation_alias="QDRANT_SEARCH_LIMIT")
@@ -104,6 +120,13 @@ class QdrantSettings(BaseSettings):
             for field in self.filterable_fields
             if field.condition is not None
         }
+
+    @field_validator("collection_names", mode="before")
+    @classmethod
+    def parse_collection_names(cls, v):
+        if isinstance(v, str):
+            return [name.strip() for name in v.split(",") if name.strip()]
+        return v
 
     @model_validator(mode="after")
     def check_local_path_conflict(self) -> "QdrantSettings":

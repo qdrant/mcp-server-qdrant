@@ -43,9 +43,11 @@ The configuration of the server is done using environment variables:
 | `QDRANT_URL`             | URL of the Qdrant server                                            | None                                                              |
 | `QDRANT_API_KEY`         | API key for the Qdrant server                                       | None                                                              |
 | `COLLECTION_NAME`        | Name of the default collection to use.                              | None                                                              |
+| `COLLECTION_NAMES`       | Comma-separated list of collections to make available               | None                                                              |
 | `QDRANT_LOCAL_PATH`      | Path to the local Qdrant database (alternative to `QDRANT_URL`)     | None                                                              |
 | `EMBEDDING_PROVIDER`     | Embedding provider to use (currently only "fastembed" is supported) | `fastembed`                                                       |
 | `EMBEDDING_MODEL`        | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
+| `USE_UNNAMED_VECTORS`    | Use unnamed vectors instead of named vectors in Qdrant collections  | `false`                                                           |
 | `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 
@@ -53,6 +55,54 @@ Note: You cannot provide both `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same t
 
 > [!IMPORTANT]
 > Command-line arguments are not supported anymore! Please use environment variables for all configuration.
+
+### Using Unnamed Vectors
+
+By default, the MCP server creates named vectors in Qdrant collections (e.g., `fast-all-minilm-l6-v2`). However, if your existing Qdrant collections use unnamed vectors (the default `vector` field), you can enable unnamed vector support by setting `USE_UNNAMED_VECTORS=true`.
+
+Example configuration for unnamed vectors:
+```shell
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2" \
+USE_UNNAMED_VECTORS="true" \
+uvx mcp-server-qdrant
+```
+
+This is useful when integrating with existing Qdrant databases that were created without specifying vector names.
+
+### Using Multiple Collections
+
+You can configure the MCP server to work with multiple collections by using the `COLLECTION_NAMES` environment variable:
+
+```shell
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAMES="collection1,collection2,collection3" \
+EMBEDDING_MODEL="BAAI/bge-base-en-v1.5" \
+uvx mcp-server-qdrant
+```
+
+When multiple collections are configured:
+- The `qdrant-find` tool will require a `collection_name` parameter
+- The `qdrant-store` tool will require a `collection_name` parameter
+- The tool descriptions will list all available collections
+
+Example Claude Desktop configuration for multiple collections:
+```json
+{
+  "qdrant": {
+    "command": "uvx",
+    "args": ["mcp-server-qdrant"],
+    "env": {
+      "QDRANT_URL": "https://xyz-example.eu-central.aws.cloud.qdrant.io:6333",
+      "QDRANT_API_KEY": "your_api_key",
+      "COLLECTION_NAMES": "asx_rules,asx_rules_chunks,company_docs",
+      "EMBEDDING_MODEL": "BAAI/bge-base-en-v1.5",
+      "USE_UNNAMED_VECTORS": "true"
+    }
+  }
+}
+```
 
 ### FastMCP Environment Variables
 
@@ -171,6 +221,24 @@ For local Qdrant mode:
       "QDRANT_LOCAL_PATH": "/path/to/qdrant/database",
       "COLLECTION_NAME": "your-collection-name",
       "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2"
+    }
+  }
+}
+```
+
+For existing Qdrant collections with unnamed vectors:
+
+```json
+{
+  "qdrant": {
+    "command": "uvx",
+    "args": ["mcp-server-qdrant"],
+    "env": {
+      "QDRANT_URL": "https://xyz-example.eu-central.aws.cloud.qdrant.io:6333",
+      "QDRANT_API_KEY": "your_api_key",
+      "COLLECTION_NAME": "your-collection-name",
+      "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2",
+      "USE_UNNAMED_VECTORS": "true"
     }
   }
 }
