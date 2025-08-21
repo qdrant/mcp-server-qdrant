@@ -236,3 +236,181 @@ async def test_nonexistent_collection_search(qdrant_connector):
 
     # Verify results
     assert len(results) == 0
+
+
+@pytest.mark.asyncio
+async def test_upsert_functionality(qdrant_connector):
+    """Test that upsert functionality works correctly - same content updates, different content creates new entry."""
+    # Store an initial entry
+    initial_entry = Entry(
+        content="This is test content for upsert",
+        metadata={"version": 1, "author": "initial"},
+    )
+    await qdrant_connector.store(initial_entry)
+
+    # Search to confirm initial storage
+    initial_results = await qdrant_connector.search("test content upsert")
+    assert len(initial_results) == 1
+    assert initial_results[0].metadata["version"] == 1
+    assert initial_results[0].metadata["author"] == "initial"
+
+    # Store the same content with different metadata (should update)
+    updated_entry = Entry(
+        content="This is test content for upsert",  # Same content
+        metadata={"version": 2, "author": "updated"},  # Different metadata
+    )
+    await qdrant_connector.store(updated_entry)
+
+    # Search again - should still have only one entry, but with updated metadata
+    updated_results = await qdrant_connector.search("test content upsert")
+    assert len(updated_results) == 1
+    assert updated_results[0].content == "This is test content for upsert"
+    assert updated_results[0].metadata["version"] == 2
+    assert updated_results[0].metadata["author"] == "updated"
+
+    # Store different content (should create new entry)
+    new_entry = Entry(
+        content="This is different test content for upsert",  # Different content
+        metadata={"version": 1, "author": "new"},
+    )
+    await qdrant_connector.store(new_entry)
+
+    # Search for both entries - should now have two entries
+    all_results = await qdrant_connector.search("test content upsert")
+    assert len(all_results) == 2
+
+    # Verify both entries exist with correct data
+    contents = [result.content for result in all_results]
+    assert "This is test content for upsert" in contents
+    assert "This is different test content for upsert" in contents
+
+
+@pytest.mark.asyncio
+async def test_content_id_generation(qdrant_connector):
+    """Test that the same content generates the same ID consistently."""
+    content1 = "Test content for ID generation"
+    content2 = "Test content for ID generation"  # Same content
+    content3 = "Different test content for ID generation"  # Different content
+
+    # Generate IDs for the same and different content
+    id1 = qdrant_connector._generate_content_id(content1)
+    id2 = qdrant_connector._generate_content_id(content2)
+    id3 = qdrant_connector._generate_content_id(content3)
+
+    # Same content should generate same ID
+    assert id1 == id2
+
+    # Different content should generate different ID
+    assert id1 != id3
+
+    # IDs should be consistent across multiple calls
+    id1_again = qdrant_connector._generate_content_id(content1)
+    assert id1 == id1_again
+
+
+@pytest.mark.asyncio
+async def test_get_point_by_id(qdrant_connector: QdrantConnector):
+    """Test getting a point by ID."""
+    collection_name = "test_get_point"
+
+    # Store a test entry
+    entry = Entry(
+        id="550e8400-e29b-41d4-a716-446655440000",
+        content="Test content for get",
+        metadata={"key": "value"},
+    )
+    await qdrant_connector.store(entry, collection_name=collection_name)
+
+    # Get the point by ID
+    retrieved_entry = await qdrant_connector.get_point_by_id(
+        "550e8400-e29b-41d4-a716-446655440000", collection_name=collection_name
+    )
+
+    assert retrieved_entry is not None
+    assert retrieved_entry.content == "Test content for get"
+    assert retrieved_entry.metadata == {"key": "value"}
+
+    # Test with non-existent ID
+    non_existent_entry = await qdrant_connector.get_point_by_id(
+        "550e8400-e29b-41d4-a716-446655440001", collection_name=collection_name
+    )
+    assert non_existent_entry is None
+
+
+@pytest.mark.asyncio
+async def test_delete_point_by_id(qdrant_connector: QdrantConnector):
+    """Test deleting a point by ID."""
+    collection_name = "test_delete_point"
+
+    # Store a test entry
+    entry = Entry(
+        id="550e8400-e29b-41d4-a716-446655440002",
+        content="Test content for delete",
+        metadata={"key": "value"},
+    )
+    await qdrant_connector.store(entry, collection_name=collection_name)
+
+    # Verify the entry exists
+    retrieved_entry = await qdrant_connector.get_point_by_id(
+        "550e8400-e29b-41d4-a716-446655440002", collection_name=collection_name
+    )
+    assert retrieved_entry is not None
+
+    # Delete the point
+    success = await qdrant_connector.delete_point_by_id(
+        "550e8400-e29b-41d4-a716-446655440002", collection_name=collection_name
+    )
+    assert success is True
+
+    # Verify the entry is deleted
+    deleted_entry = await qdrant_connector.get_point_by_id(
+        "550e8400-e29b-41d4-a716-446655440002", collection_name=collection_name
+    )
+    assert deleted_entry is None
+
+    # Test deleting non-existent point
+    success = await qdrant_connector.delete_point_by_id(
+        "550e8400-e29b-41d4-a716-446655440003", collection_name=collection_name
+    )
+    assert success is False
+
+
+@pytest.mark.asyncio
+async def test_update_point_payload(qdrant_connector: QdrantConnector):
+    """Test updating a point's payload/metadata."""
+    collection_name = "test_update_payload"
+
+    # Store a test entry
+    entry = Entry(
+        id="550e8400-e29b-41d4-a716-446655440004",
+        content="Test content for update",
+        metadata={"original": "data"},
+    )
+    await qdrant_connector.store(entry, collection_name=collection_name)
+
+    # Update the payload
+    new_metadata = {"updated": "metadata", "new_field": "new_value"}
+    success = await qdrant_connector.update_point_payload(
+        "550e8400-e29b-41d4-a716-446655440004",
+        new_metadata,
+        collection_name=collection_name,
+    )
+    assert success is True
+
+    # Verify the payload was updated
+    updated_entry = await qdrant_connector.get_point_by_id(
+        "550e8400-e29b-41d4-a716-446655440004", collection_name=collection_name
+    )
+    assert updated_entry is not None
+    assert (
+        updated_entry.content == "Test content for update"
+    )  # Content should remain the same
+    assert updated_entry.metadata == new_metadata
+
+    # Test updating non-existent point
+    success = await qdrant_connector.update_point_payload(
+        "550e8400-e29b-41d4-a716-446655440005",
+        {"test": "data"},
+        collection_name=collection_name,
+    )
+    assert success is False
