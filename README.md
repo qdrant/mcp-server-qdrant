@@ -44,8 +44,8 @@ The configuration of the server is done using environment variables:
 | `QDRANT_API_KEY`         | API key for the Qdrant server                                       | None                                                              |
 | `COLLECTION_NAME`        | Name of the default collection to use.                              | None                                                              |
 | `QDRANT_LOCAL_PATH`      | Path to the local Qdrant database (alternative to `QDRANT_URL`)     | None                                                              |
-| `EMBEDDING_PROVIDER`     | Embedding provider to use (currently only "fastembed" is supported) | `fastembed`                                                       |
-| `EMBEDDING_MODEL`        | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
+| `EMBEDDING_PROVIDER`     | Embedding provider to use ("fastembed" or "model2vec")              | `fastembed`                                                       |
+| `EMBEDDING_MODEL`        | Name of the embedding model to use (FastEmbed or Model2Vec model)  | `sentence-transformers/all-MiniLM-L6-v2`                          |
 | `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 
@@ -179,7 +179,27 @@ For local Qdrant mode:
 This MCP server will automatically create a collection with the specified name if it doesn't exist.
 
 By default, the server will use the `sentence-transformers/all-MiniLM-L6-v2` embedding model to encode memories.
-For the time being, only [FastEmbed](https://qdrant.github.io/fastembed/) models are supported.
+The server supports two embedding providers:
+
+- **FastEmbed**: Traditional transformer-based models with high accuracy. See [FastEmbed](https://qdrant.github.io/fastembed/) for available models.
+- **Model2Vec**: Lightweight, efficient embedding models with faster inference. See [Model2Vec](https://github.com/MinishLab/model2vec) for available models.
+
+### Using Model2Vec
+
+To use model2vec embeddings, set the `EMBEDDING_PROVIDER` to `model2vec` and specify a model2vec model:
+
+```shell
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+EMBEDDING_PROVIDER="model2vec" \
+EMBEDDING_MODEL="minishlab/potion-base-8M" \
+uvx mcp-server-qdrant
+```
+
+Popular model2vec models include:
+- `minishlab/potion-base-8M` - Lightweight general-purpose model
+- `minishlab/potion-base-4M` - Even smaller model for resource-constrained environments
+- `minishlab/M2V_base_output` - Base model with good performance
 
 ## Support for other tools
 
