@@ -47,6 +47,21 @@ class EmbeddingProviderSettings(BaseSettings):
         validation_alias="EMBEDDING_MODEL",
     )
 
+    oai_compat_endpoint: str = Field(
+        default="https://api.openai.com/v1",
+        validation_alias="OAI_COMPAT_ENDPOINT"
+    )
+    
+    oai_compat_api_key: str = Field(
+        default="",
+        validation_alias="OAI_COMPAT_API_KEY"
+    )
+
+    oai_compat_vec_size: int | None = Field(
+        default=None,
+        validation_alias="OAI_COMPAT_VEC_SIZE"
+    )
+
 
 class FilterableField(BaseModel):
     name: str = Field(description="The name of the field payload field to filter on")
