@@ -42,6 +42,7 @@ class QdrantConnector:
         embedding_provider: EmbeddingProvider,
         qdrant_local_path: str | None = None,
         field_indexes: dict[str, models.PayloadSchemaType] | None = None,
+        sparse_embedding_name: str = "sparse",
     ):
         self._qdrant_url = qdrant_url.rstrip("/") if qdrant_url else None
         self._qdrant_api_key = qdrant_api_key
@@ -51,6 +52,7 @@ class QdrantConnector:
             location=qdrant_url, api_key=qdrant_api_key, path=qdrant_local_path
         )
         self._field_indexes = field_indexes
+        self._sparse_embedding_name = sparse_embedding_name
 
     async def get_collection_names(self) -> list[str]:
         """
@@ -193,7 +195,7 @@ class QdrantConnector:
                 prefetch_queries.append(
                     models.Prefetch(
                         query=models.Document(text=query, model="bm25"),
-                        using="sparse",
+                        using=self._sparse_embedding_name,
                         limit=sparse_limit,
                     )
                 )

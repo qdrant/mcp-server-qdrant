@@ -60,6 +60,7 @@ The configuration of the server is done using environment variables:
 | `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_HYBRID_FIND_DESCRIPTION` | Custom description for the hybrid find tool                   | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
+| `SPARSE_EMBEDDING_NAME`  | Name of the sparse vector in the Qdrant collection for hybrid search | `sparse`                                                          |
 
 Note: You cannot provide both `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
 
