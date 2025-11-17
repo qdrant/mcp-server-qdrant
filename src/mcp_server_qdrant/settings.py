@@ -1,7 +1,7 @@
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
 
@@ -9,10 +9,15 @@ DEFAULT_TOOL_STORE_DESCRIPTION = (
     "Keep the memory for later use, when you are asked to remember something."
 )
 DEFAULT_TOOL_FIND_DESCRIPTION = (
-    "Look up memories in Qdrant. Use this tool when you need to: \n"
+    "Look up memories in Qdrant using semantic search. Use this tool when you need to: \n"
     " - Find memories by their content \n"
     " - Access memories for further analysis \n"
     " - Get some personal information about the user"
+)
+DEFAULT_TOOL_HYBRID_FIND_DESCRIPTION = (
+    "Look up memories in Qdrant using hybrid search (combining dense and sparse vectors). "
+    "Use this tool when you need more accurate results by combining semantic and keyword-based search. "
+    "Supports different fusion methods (RRF, DBSF) and allows fine-tuning result limits."
 )
 
 METADATA_PATH = "metadata"
@@ -31,6 +36,10 @@ class ToolSettings(BaseSettings):
         default=DEFAULT_TOOL_FIND_DESCRIPTION,
         validation_alias="TOOL_FIND_DESCRIPTION",
     )
+    tool_hybrid_find_description: str = Field(
+        default=DEFAULT_TOOL_HYBRID_FIND_DESCRIPTION,
+        validation_alias="TOOL_HYBRID_FIND_DESCRIPTION",
+    )
 
 
 class EmbeddingProviderSettings(BaseSettings):
@@ -45,6 +54,26 @@ class EmbeddingProviderSettings(BaseSettings):
     model_name: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
+    )
+    oai_compat_endpoint: str = Field(
+        default="https://api.openai.com/v1",
+        validation_alias="OAI_COMPAT_ENDPOINT",
+    )
+    oai_compat_api_key: str | None = Field(
+        default=None,
+        validation_alias="OAI_COMPAT_API_KEY",
+    )
+    oai_compat_vec_size: int | None = Field(
+        default=None,
+        validation_alias="OAI_COMPAT_VEC_SIZE",
+    )
+    use_unnamed_vectors: bool = Field(
+        default=False,
+        validation_alias="USE_UNNAMED_VECTORS",
+    )
+    sparse_embedding_model: str | None = Field(
+        default=None,
+        validation_alias="SPARSE_EMBEDDING_MODEL",
     )
 
 
@@ -76,10 +105,15 @@ class QdrantSettings(BaseSettings):
     Configuration for the Qdrant connector.
     """
 
+    model_config = SettingsConfigDict(env_parse_none_str="None")
+
     location: str | None = Field(default=None, validation_alias="QDRANT_URL")
     api_key: str | None = Field(default=None, validation_alias="QDRANT_API_KEY")
     collection_name: str | None = Field(
         default=None, validation_alias="COLLECTION_NAME"
+    )
+    collection_names: list[str] | None = Field(
+        default=None, validation_alias="COLLECTION_NAMES"
     )
     local_path: str | None = Field(default=None, validation_alias="QDRANT_LOCAL_PATH")
     search_limit: int = Field(default=10, validation_alias="QDRANT_SEARCH_LIMIT")

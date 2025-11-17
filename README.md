@@ -23,31 +23,81 @@ It acts as a semantic memory layer on top of the Qdrant database.
    - Input:
      - `information` (string): Information to store
      - `metadata` (JSON): Optional metadata to store
-     - `collection_name` (string): Name of the collection to store the information in. This field is required if there are no default collection name.
-                                   If there is a default collection name, this field is not enabled.
+     - `collection_name` (string, optional): Name of the collection to store the information in
    - Returns: Confirmation message
+
 2. `qdrant-find`
-   - Retrieve relevant information from the Qdrant database
+   - Retrieve relevant information from the Qdrant database using semantic search
    - Input:
      - `query` (string): Query to use for searching
-     - `collection_name` (string): Name of the collection to store the information in. This field is required if there are no default collection name.
-                                   If there is a default collection name, this field is not enabled.
+     - `collection_name` (string, optional): Name of the collection to search in
    - Returns: Information stored in the Qdrant database as separate messages
+
+3. `qdrant-hybrid-find`
+   - Retrieve information using hybrid search (combining dense and sparse vectors)
+   - Input:
+     - `query` (string): Query to use for searching
+     - `collection_name` (string, optional): Name of the collection to search in
+     - `fusion_method` (string): Fusion method - 'rrf' or 'dbsf' (default: 'rrf')
+     - `dense_limit` (int): Limit for dense vector prefetch (default: 10)
+     - `sparse_limit` (int): Limit for sparse vector prefetch (default: 10)
+     - `final_limit` (int): Final limit after fusion (default: 10)
+   - Returns: Hybrid search results
+
+4. `qdrant-get-point`
+   - Retrieve a specific point by ID from a collection
+   - Input:
+     - `point_id` (string): The ID of the point to retrieve
+     - `collection_name` (string, optional): Name of the collection
+   - Returns: Point data with content and metadata
+
+5. `qdrant-delete-point`
+   - Delete a specific point by ID from a collection
+   - Input:
+     - `point_id` (string): The ID of the point to delete
+     - `collection_name` (string, optional): Name of the collection
+   - Returns: Confirmation message
+
+6. `qdrant-update-point-payload`
+   - Update the metadata/payload for a specific point
+   - Input:
+     - `point_id` (string): The ID of the point to update
+     - `metadata` (JSON): The new metadata to set
+     - `collection_name` (string, optional): Name of the collection
+   - Returns: Confirmation message
+
+7. `qdrant-get-collections`
+   - List all available collections in Qdrant
+   - Returns: List of collection names
+
+8. `qdrant-get-collection-details`
+   - Get detailed information about a specific collection
+   - Input:
+     - `collection_name` (string): Name of the collection
+   - Returns: Collection details including status, vector count, and configuration
 
 ## Environment Variables
 
 The configuration of the server is done using environment variables:
 
-| Name                     | Description                                                         | Default Value                                                     |
-|--------------------------|---------------------------------------------------------------------|-------------------------------------------------------------------|
-| `QDRANT_URL`             | URL of the Qdrant server                                            | None                                                              |
-| `QDRANT_API_KEY`         | API key for the Qdrant server                                       | None                                                              |
-| `COLLECTION_NAME`        | Name of the default collection to use.                              | None                                                              |
-| `QDRANT_LOCAL_PATH`      | Path to the local Qdrant database (alternative to `QDRANT_URL`)     | None                                                              |
-| `EMBEDDING_PROVIDER`     | Embedding provider to use (currently only "fastembed" is supported) | `fastembed`                                                       |
-| `EMBEDDING_MODEL`        | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
-| `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
-| `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
+| Name                            | Description                                                         | Default Value                                                     |
+|---------------------------------|---------------------------------------------------------------------|-------------------------------------------------------------------|
+| `QDRANT_URL`                    | URL of the Qdrant server                                            | None                                                              |
+| `QDRANT_API_KEY`                | API key for the Qdrant server                                       | None                                                              |
+| `COLLECTION_NAME`               | Name of the default collection to use                               | None                                                              |
+| `COLLECTION_NAMES`              | List of collection names for multiple collections support           | None                                                              |
+| `QDRANT_LOCAL_PATH`             | Path to the local Qdrant database (alternative to `QDRANT_URL`)     | None                                                              |
+| `QDRANT_READ_ONLY`              | Enable read-only mode (disables write operations)                   | `false`                                                           |
+| `EMBEDDING_PROVIDER`            | Embedding provider: "fastembed", "model2vec", or "oai_compat"       | `fastembed`                                                       |
+| `EMBEDDING_MODEL`               | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
+| `USE_UNNAMED_VECTORS`           | Use Qdrant's unnamed vector field instead of named vectors          | `false`                                                           |
+| `SPARSE_EMBEDDING_MODEL`        | Sparse embedding model for hybrid search                            | None                                                              |
+| `OAI_COMPAT_ENDPOINT`           | OpenAI-compatible API endpoint URL                                  | `https://api.openai.com/v1`                                       |
+| `OAI_COMPAT_API_KEY`            | API key for OpenAI-compatible endpoint                              | None                                                              |
+| `OAI_COMPAT_VEC_SIZE`           | Vector size override for OpenAI-compatible embeddings               | None (auto-detected)                                              |
+| `TOOL_STORE_DESCRIPTION`        | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
+| `TOOL_FIND_DESCRIPTION`         | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
+| `TOOL_HYBRID_FIND_DESCRIPTION`  | Custom description for the hybrid find tool                         | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 
 Note: You cannot provide both `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
 
@@ -179,7 +229,91 @@ For local Qdrant mode:
 This MCP server will automatically create a collection with the specified name if it doesn't exist.
 
 By default, the server will use the `sentence-transformers/all-MiniLM-L6-v2` embedding model to encode memories.
-For the time being, only [FastEmbed](https://qdrant.github.io/fastembed/) models are supported.
+
+### Embedding Providers
+
+The server supports multiple embedding providers:
+
+1. **FastEmbed** (default) - Local embedding models via [FastEmbed](https://qdrant.github.io/fastembed/)
+2. **Model2Vec** - Fast, lightweight static embeddings
+3. **OpenAI-compatible** - Any OpenAI-compatible API endpoint
+
+#### Using Model2Vec
+
+To use Model2Vec embeddings:
+
+```shell
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+EMBEDDING_PROVIDER="model2vec" \
+EMBEDDING_MODEL="minishlab/potion-base-8M" \
+uvx mcp-server-qdrant
+```
+
+Popular Model2Vec models:
+- `minishlab/potion-base-8M` - Efficient 8M parameter model
+- `minishlab/potion-base-4M` - Compact 4M parameter model
+- `minishlab/M2V_base_output` - Base output model
+
+#### Using OpenAI-Compatible Embeddings
+
+To use OpenAI or compatible API:
+
+```shell
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+EMBEDDING_PROVIDER="oai_compat" \
+EMBEDDING_MODEL="text-embedding-3-small" \
+OAI_COMPAT_API_KEY="your-api-key" \
+uvx mcp-server-qdrant
+```
+
+### Using Unnamed Vectors
+
+Qdrant supports unnamed vectors as a simpler alternative to named vectors. To enable:
+
+```shell
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+USE_UNNAMED_VECTORS="true" \
+uvx mcp-server-qdrant
+```
+
+### Multiple Collections
+
+You can configure the server to work with multiple collections by setting `COLLECTION_NAMES`:
+
+```shell
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAMES='["collection1", "collection2", "collection3"]' \
+uvx mcp-server-qdrant
+```
+
+When using multiple collections, the `collection_name` parameter becomes available in all tools.
+
+### Claude Desktop Configuration Example for Multiple Collections
+
+```json
+{
+  "qdrant": {
+    "command": "uvx",
+    "args": ["mcp-server-qdrant"],
+    "env": {
+      "QDRANT_URL": "https://xyz-example.eu-central.aws.cloud.qdrant.io:6333",
+      "QDRANT_API_KEY": "your_api_key",
+      "COLLECTION_NAMES": "[\"personal\", \"work\", \"research\"]",
+      "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2"
+    }
+  }
+}
+```
+
+### Hybrid Search
+
+The server supports hybrid search combining dense and sparse vectors for improved accuracy. This requires configuring sparse embeddings in your Qdrant collection. The `qdrant-hybrid-find` tool supports two fusion methods:
+
+- **RRF** (Reciprocal Rank Fusion) - Default method
+- **DBSF** (Distribution-Based Score Fusion) - Alternative fusion strategy
 
 ## Support for other tools
 
