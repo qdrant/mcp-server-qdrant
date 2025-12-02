@@ -44,10 +44,16 @@ The configuration of the server is done using environment variables:
 | `QDRANT_API_KEY`         | API key for the Qdrant server                                       | None                                                              |
 | `COLLECTION_NAME`        | Name of the default collection to use.                              | None                                                              |
 | `QDRANT_LOCAL_PATH`      | Path to the local Qdrant database (alternative to `QDRANT_URL`)     | None                                                              |
+| `QDRANT_VECTOR_NAME`     | Name of the vector to use. Set to empty string for unnamed vectors. | Auto-generated from embedding model (e.g., `fast-all-minilm-l6-v2`) |
 | `EMBEDDING_PROVIDER`     | Embedding provider to use (currently only "fastembed" is supported) | `fastembed`                                                       |
 | `EMBEDDING_MODEL`        | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
 | `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
+
+> [!TIP]
+> If you have a pre-existing Qdrant collection that uses unnamed vectors (the default when creating collections
+> without specifying vector names), set `QDRANT_VECTOR_NAME=""` to use unnamed vectors instead of the auto-generated
+> name.
 
 Note: You cannot provide both `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
 

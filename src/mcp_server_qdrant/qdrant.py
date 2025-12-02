@@ -32,6 +32,8 @@ class QdrantConnector:
                             the collection name to be provided.
     :param embedding_provider: The embedding provider to use.
     :param qdrant_local_path: The path to the storage directory for the Qdrant client, if local mode is used.
+    :param vector_name: The name of the vector to use. If None, uses the auto-generated name from the embedding
+                        provider. If empty string, uses unnamed vectors.
     """
 
     def __init__(
@@ -42,6 +44,7 @@ class QdrantConnector:
         embedding_provider: EmbeddingProvider,
         qdrant_local_path: str | None = None,
         field_indexes: dict[str, models.PayloadSchemaType] | None = None,
+        vector_name: str | None = None,
     ):
         self._qdrant_url = qdrant_url.rstrip("/") if qdrant_url else None
         self._qdrant_api_key = qdrant_api_key
@@ -51,6 +54,22 @@ class QdrantConnector:
             location=qdrant_url, api_key=qdrant_api_key, path=qdrant_local_path
         )
         self._field_indexes = field_indexes
+        self._vector_name_override = vector_name
+
+    def _get_vector_name(self) -> str | None:
+        """
+        Get the vector name to use for operations.
+        Returns None for unnamed vectors, or the vector name string for named vectors.
+        """
+        if self._vector_name_override is None:
+            # Default: use auto-generated name from embedding provider
+            return self._embedding_provider.get_vector_name()
+        elif self._vector_name_override == "":
+            # Empty string: use unnamed vectors
+            return None
+        else:
+            # Custom name provided
+            return self._vector_name_override
 
     async def get_collection_names(self) -> list[str]:
         """
@@ -77,14 +96,18 @@ class QdrantConnector:
         embeddings = await self._embedding_provider.embed_documents([entry.content])
 
         # Add to Qdrant
-        vector_name = self._embedding_provider.get_vector_name()
+        vector_name = self._get_vector_name()
         payload = {"document": entry.content, METADATA_PATH: entry.metadata}
+        # Use named or unnamed vector based on configuration
+        vector_data = (
+            {vector_name: embeddings[0]} if vector_name else embeddings[0]
+        )
         await self._client.upsert(
             collection_name=collection_name,
             points=[
                 models.PointStruct(
                     id=uuid.uuid4().hex,
-                    vector={vector_name: embeddings[0]},
+                    vector=vector_data,
                     payload=payload,
                 )
             ],
@@ -118,16 +141,18 @@ class QdrantConnector:
         # it should unlock usage of server-side inference.
 
         query_vector = await self._embedding_provider.embed_query(query)
-        vector_name = self._embedding_provider.get_vector_name()
+        vector_name = self._get_vector_name()
 
-        # Search in Qdrant
-        search_results = await self._client.query_points(
-            collection_name=collection_name,
-            query=query_vector,
-            using=vector_name,
-            limit=limit,
-            query_filter=query_filter,
-        )
+        # Search in Qdrant - only pass 'using' parameter for named vectors
+        search_kwargs: dict[str, Any] = {
+            "collection_name": collection_name,
+            "query": query_vector,
+            "limit": limit,
+            "query_filter": query_filter,
+        }
+        if vector_name:
+            search_kwargs["using"] = vector_name
+        search_results = await self._client.query_points(**search_kwargs)
 
         return [
             Entry(
@@ -146,17 +171,25 @@ class QdrantConnector:
         if not collection_exists:
             # Create the collection with the appropriate vector size
             vector_size = self._embedding_provider.get_vector_size()
+            vector_name = self._get_vector_name()
 
-            # Use the vector name as defined in the embedding provider
-            vector_name = self._embedding_provider.get_vector_name()
-            await self._client.create_collection(
-                collection_name=collection_name,
-                vectors_config={
+            # Use named or unnamed vectors based on configuration
+            if vector_name:
+                vectors_config: models.VectorParams | dict[str, models.VectorParams] = {
                     vector_name: models.VectorParams(
                         size=vector_size,
                         distance=models.Distance.COSINE,
                     )
-                },
+                }
+            else:
+                vectors_config = models.VectorParams(
+                    size=vector_size,
+                    distance=models.Distance.COSINE,
+                )
+
+            await self._client.create_collection(
+                collection_name=collection_name,
+                vectors_config=vectors_config,
             )
 
             # Create payload indexes if configured
