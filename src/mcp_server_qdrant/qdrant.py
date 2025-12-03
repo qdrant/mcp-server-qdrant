@@ -45,6 +45,7 @@ class QdrantConnector:
         qdrant_local_path: str | None = None,
         field_indexes: dict[str, models.PayloadSchemaType] | None = None,
         vector_name: str | None = None,
+        content_payload_key: str = "document",
     ):
         self._qdrant_url = qdrant_url.rstrip("/") if qdrant_url else None
         self._qdrant_api_key = qdrant_api_key
@@ -55,6 +56,7 @@ class QdrantConnector:
         )
         self._field_indexes = field_indexes
         self._vector_name_override = vector_name
+        self._content_payload_key = content_payload_key
 
     def _get_vector_name(self) -> str | None:
         """
@@ -97,7 +99,7 @@ class QdrantConnector:
 
         # Add to Qdrant
         vector_name = self._get_vector_name()
-        payload = {"document": entry.content, METADATA_PATH: entry.metadata}
+        payload = {self._content_payload_key: entry.content, METADATA_PATH: entry.metadata}
         # Use named or unnamed vector based on configuration
         vector_data = (
             {vector_name: embeddings[0]} if vector_name else embeddings[0]
@@ -156,7 +158,7 @@ class QdrantConnector:
 
         return [
             Entry(
-                content=result.payload["document"],
+                content=result.payload[self._content_payload_key],
                 metadata=result.payload.get("metadata"),
             )
             for result in search_results.points

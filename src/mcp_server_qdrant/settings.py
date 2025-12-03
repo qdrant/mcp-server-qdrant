@@ -99,6 +99,15 @@ class QdrantSettings(BaseSettings):
     allow_arbitrary_filter: bool = Field(
         default=False, validation_alias="QDRANT_ALLOW_ARBITRARY_FILTER"
     )
+    content_payload_key: str = Field(
+        default="document",
+        validation_alias="QDRANT_CONTENT_PAYLOAD_KEY",
+        description=(
+            "The key used in the payload to store the document content. "
+            "Default is 'document'. Set to 'content' for compatibility with "
+            "LangChain-style payloads."
+        ),
+    )
 
     def filterable_fields_dict(self) -> dict[str, FilterableField]:
         if self.filterable_fields is None:
