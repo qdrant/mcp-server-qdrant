@@ -137,6 +137,112 @@ class QdrantConnector:
             for result in search_results.points
         ]
 
+    async def find_hybrid(
+        self,
+        query: str,
+        *,
+        collection_name: str | None = None,
+        fusion_method: str = "rrf",
+        dense_limit: int = 20,
+        sparse_limit: int = 20,
+        final_limit: int = 10,
+        query_filter: models.Filter | None = None,
+    ) -> list[Entry]:
+        """
+        Hybrid search combining dense and sparse vectors using Qdrant's Query API.
+
+        :param query: The text query to search for.
+        :param collection_name: The name of the collection to search in.
+        :param fusion_method: Fusion method - "rrf" (Reciprocal Rank Fusion) or "dbsf" (Distribution-Based Score Fusion).
+        :param dense_limit: Maximum results from dense vector search.
+        :param sparse_limit: Maximum results from sparse vector search.
+        :param final_limit: Maximum final results after fusion.
+        :param query_filter: Optional filter to apply to the search.
+        :return: A list of entries found, fused from both dense and sparse search.
+        """
+        collection_name = collection_name or self._default_collection_name
+        if collection_name is None:
+            return []
+
+        collection_exists = await self._client.collection_exists(collection_name)
+        if not collection_exists:
+            return []
+
+        # Check if collection has both dense and sparse vectors
+        # For now, we'll assume dense vector exists and fallback gracefully if sparse doesn't
+        vector_name = self._embedding_provider.get_vector_name()
+
+        try:
+            # Build prefetch queries for hybrid search
+            prefetch_queries = []
+
+            # Dense vector search (semantic similarity)
+            query_vector = await self._embedding_provider.embed_query(query)
+            prefetch_queries.append(
+                models.Prefetch(
+                    query=query_vector,
+                    using=vector_name,
+                    limit=dense_limit,
+                )
+            )
+
+            # Sparse vector search (keyword matching)
+            # Note: This assumes sparse vectors are configured in the collection
+            # In practice, you'd want to check collection config first
+            try:
+                prefetch_queries.append(
+                    models.Prefetch(
+                        query=models.Document(text=query, model="bm25"),
+                        using="sparse",
+                        limit=sparse_limit,
+                    )
+                )
+            except Exception:
+                # If sparse vectors aren't available, fallback to dense-only search
+                logger.warning(
+                    f"Sparse vectors not available in collection {collection_name}, using dense-only search"
+                )
+                return await self.search(
+                    query,
+                    collection_name=collection_name,
+                    limit=final_limit,
+                    query_filter=query_filter,
+                )
+
+            # Execute hybrid search with fusion
+            fusion_type = (
+                models.Fusion.RRF
+                if fusion_method.lower() == "rrf"
+                else models.Fusion.DBSF
+            )
+
+            search_results = await self._client.query_points(
+                collection_name=collection_name,
+                prefetch=prefetch_queries,
+                query=models.FusionQuery(fusion=fusion_type),
+                limit=final_limit,
+                query_filter=query_filter,
+            )
+
+            return [
+                Entry(
+                    content=result.payload["document"] if result.payload else "",
+                    metadata=result.payload.get("metadata") if result.payload else None,
+                )
+                for result in search_results.points
+            ]
+
+        except Exception as e:
+            logger.error(f"Hybrid search failed: {e}")
+            # Fallback to regular dense search
+            logger.info(f"Falling back to dense vector search for query: {query}")
+            return await self.search(
+                query,
+                collection_name=collection_name,
+                limit=final_limit,
+                query_filter=query_filter,
+            )
+
     async def _ensure_collection_exists(self, collection_name: str):
         """
         Ensure that the collection exists, creating it if necessary.

@@ -3,6 +3,7 @@ import pytest
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
 from mcp_server_qdrant.settings import (
     DEFAULT_TOOL_FIND_DESCRIPTION,
+    DEFAULT_TOOL_HYBRID_FIND_DESCRIPTION,
     DEFAULT_TOOL_STORE_DESCRIPTION,
     EmbeddingProviderSettings,
     QdrantSettings,
@@ -85,6 +86,10 @@ class TestToolSettings:
         settings = ToolSettings()
         assert settings.tool_store_description == DEFAULT_TOOL_STORE_DESCRIPTION
         assert settings.tool_find_description == DEFAULT_TOOL_FIND_DESCRIPTION
+        assert (
+            settings.tool_hybrid_find_description
+            == DEFAULT_TOOL_HYBRID_FIND_DESCRIPTION
+        )
 
     def test_custom_store_description(self, monkeypatch):
         """Test loading custom store description from environment variable."""
@@ -92,6 +97,10 @@ class TestToolSettings:
         settings = ToolSettings()
         assert settings.tool_store_description == "Custom store description"
         assert settings.tool_find_description == DEFAULT_TOOL_FIND_DESCRIPTION
+        assert (
+            settings.tool_hybrid_find_description
+            == DEFAULT_TOOL_HYBRID_FIND_DESCRIPTION
+        )
 
     def test_custom_find_description(self, monkeypatch):
         """Test loading custom find description from environment variable."""
@@ -99,11 +108,29 @@ class TestToolSettings:
         settings = ToolSettings()
         assert settings.tool_store_description == DEFAULT_TOOL_STORE_DESCRIPTION
         assert settings.tool_find_description == "Custom find description"
+        assert (
+            settings.tool_hybrid_find_description
+            == DEFAULT_TOOL_HYBRID_FIND_DESCRIPTION
+        )
+
+    def test_custom_hybrid_find_description(self, monkeypatch):
+        """Test loading custom hybrid find description from environment variable."""
+        monkeypatch.setenv(
+            "TOOL_HYBRID_FIND_DESCRIPTION", "Custom hybrid find description"
+        )
+        settings = ToolSettings()
+        assert settings.tool_store_description == DEFAULT_TOOL_STORE_DESCRIPTION
+        assert settings.tool_find_description == DEFAULT_TOOL_FIND_DESCRIPTION
+        assert settings.tool_hybrid_find_description == "Custom hybrid find description"
 
     def test_all_custom_values(self, monkeypatch):
         """Test loading all custom values from environment variables."""
         monkeypatch.setenv("TOOL_STORE_DESCRIPTION", "Custom store description")
         monkeypatch.setenv("TOOL_FIND_DESCRIPTION", "Custom find description")
+        monkeypatch.setenv(
+            "TOOL_HYBRID_FIND_DESCRIPTION", "Custom hybrid find description"
+        )
         settings = ToolSettings()
         assert settings.tool_store_description == "Custom store description"
         assert settings.tool_find_description == "Custom find description"
+        assert settings.tool_hybrid_find_description == "Custom hybrid find description"
