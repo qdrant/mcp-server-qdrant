@@ -23,15 +23,13 @@ It acts as a semantic memory layer on top of the Qdrant database.
    - Input:
      - `information` (string): Information to store
      - `metadata` (JSON): Optional metadata to store
-     - `collection_name` (string): Name of the collection to store the information in. This field is required if there are no default collection name.
-                                   If there is a default collection name, this field is not enabled.
+     - `collection_name` (string, optional): Name of the collection to store the information in. If not provided, uses the default collection configured via `COLLECTION_NAME` environment variable.
    - Returns: Confirmation message
 2. `qdrant-find`
    - Retrieve relevant information from the Qdrant database
    - Input:
      - `query` (string): Query to use for searching
-     - `collection_name` (string): Name of the collection to store the information in. This field is required if there are no default collection name.
-                                   If there is a default collection name, this field is not enabled.
+     - `collection_name` (string, optional): Name of the collection to search in. If not provided, uses the default collection configured via `COLLECTION_NAME` environment variable.
    - Returns: Information stored in the Qdrant database as separate messages
 
 ## Environment Variables

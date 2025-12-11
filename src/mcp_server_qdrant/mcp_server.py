@@ -94,8 +94,11 @@ class QdrantMCPServer(FastMCP):
             ctx: Context,
             information: Annotated[str, Field(description="Text to store")],
             collection_name: Annotated[
-                str, Field(description="The collection to store the information in")
-            ],
+                str | None,
+                Field(
+                    description="Collection to store information in (uses default if not specified)"
+                ),
+            ] = None,
             # The `metadata` parameter is defined as non-optional, but it can be None.
             # If we set it to be optional, some of the MCP clients, like Cursor, cannot
             # handle the optional parameter correctly.
@@ -115,21 +118,32 @@ class QdrantMCPServer(FastMCP):
                                     the default collection is used.
             :return: A message indicating that the information was stored.
             """
-            await ctx.debug(f"Storing information {information} in Qdrant")
+            # Use default collection if none specified
+            effective_collection = (
+                collection_name or self.qdrant_settings.collection_name
+            )
+            await ctx.debug(
+                f"Storing information {information} in Qdrant collection: {effective_collection}"
+            )
 
             entry = Entry(content=information, metadata=metadata)
 
-            await self.qdrant_connector.store(entry, collection_name=collection_name)
-            if collection_name:
-                return f"Remembered: {information} in collection {collection_name}"
+            await self.qdrant_connector.store(
+                entry, collection_name=effective_collection
+            )
+            if effective_collection:
+                return f"Remembered: {information} in collection {effective_collection}"
             return f"Remembered: {information}"
 
         async def find(
             ctx: Context,
             query: Annotated[str, Field(description="What to search for")],
             collection_name: Annotated[
-                str, Field(description="The collection to search in")
-            ],
+                str | None,
+                Field(
+                    description="Collection to search in (uses default if not specified)"
+                ),
+            ] = None,
             query_filter: ArbitraryFilter | None = None,
         ) -> list[str] | None:
             """
@@ -145,15 +159,23 @@ class QdrantMCPServer(FastMCP):
             # Log query_filter
             await ctx.debug(f"Query filter: {query_filter}")
 
-            query_filter = models.Filter(**query_filter) if query_filter else None
+            # Use default collection if none specified
+            effective_collection = (
+                collection_name or self.qdrant_settings.collection_name
+            )
 
-            await ctx.debug(f"Finding results for query {query}")
+            await ctx.debug(
+                f"Finding results for query {query} in collection: {effective_collection}"
+            )
+
+            # Convert query_filter to models.Filter if provided
+            parsed_filter = models.Filter(**query_filter) if query_filter else None
 
             entries = await self.qdrant_connector.search(
                 query,
-                collection_name=collection_name,
+                collection_name=effective_collection,
                 limit=self.qdrant_settings.search_limit,
-                query_filter=query_filter,
+                query_filter=parsed_filter,
             )
             if not entries:
                 return None
@@ -176,13 +198,8 @@ class QdrantMCPServer(FastMCP):
         elif not self.qdrant_settings.allow_arbitrary_filter:
             find_foo = make_partial_function(find_foo, {"query_filter": None})
 
-        if self.qdrant_settings.collection_name:
-            find_foo = make_partial_function(
-                find_foo, {"collection_name": self.qdrant_settings.collection_name}
-            )
-            store_foo = make_partial_function(
-                store_foo, {"collection_name": self.qdrant_settings.collection_name}
-            )
+        # Collection parameter is now optional and handled within the functions
+        # No need to hide the parameter when default collection is configured
 
         self.tool(
             find_foo,
