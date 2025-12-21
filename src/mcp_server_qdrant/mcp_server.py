@@ -3,6 +3,7 @@ import logging
 from typing import Annotated, Any, Optional
 
 from fastmcp import Context, FastMCP
+from mcp.types import ToolAnnotations
 from pydantic import Field
 from qdrant_client import models
 
@@ -188,6 +189,10 @@ class QdrantMCPServer(FastMCP):
             find_foo,
             name="qdrant-find",
             description=self.tool_settings.tool_find_description,
+            annotations=ToolAnnotations(
+                title="Find in Qdrant",
+                readOnlyHint=True,
+            ),
         )
 
         if not self.qdrant_settings.read_only:
@@ -196,4 +201,8 @@ class QdrantMCPServer(FastMCP):
                 store_foo,
                 name="qdrant-store",
                 description=self.tool_settings.tool_store_description,
+                annotations=ToolAnnotations(
+                    title="Store in Qdrant",
+                    destructiveHint=True,
+                ),
             )
