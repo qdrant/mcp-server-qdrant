@@ -63,8 +63,8 @@ important ones are listed below:
 |---------------------------------------|-----------------------------------------------------------|---------------|
 | `FASTMCP_DEBUG`                       | Enable debug mode                                         | `false`       |
 | `FASTMCP_LOG_LEVEL`                   | Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) | `INFO`        |
-| `FASTMCP_HOST`                        | Host address to bind the server to                        | `127.0.0.1`   |
-| `FASTMCP_PORT`                        | Port to run the server on                                 | `8000`        |
+| `FASTMCP_SERVER_HOST`                 | Host address to bind the server to                        | `127.0.0.1`   |
+| `FASTMCP_SERVER_PORT`                 | Port to run the server on                                 | `8000`        |
 | `FASTMCP_WARN_ON_DUPLICATE_RESOURCES` | Show warnings for duplicate resources                     | `true`        |
 | `FASTMCP_WARN_ON_DUPLICATE_TOOLS`     | Show warnings for duplicate tools                         | `true`        |
 | `FASTMCP_WARN_ON_DUPLICATE_PROMPTS`   | Show warnings for duplicate prompts                       | `true`        |
@@ -102,12 +102,12 @@ Supported transport protocols:
 The default transport is `stdio` if not specified.
 
 When SSE transport is used, the server will listen on the specified port and wait for incoming connections. The default
-port is 8000, however it can be changed using the `FASTMCP_PORT` environment variable.
+port is 8000, however it can be changed using the `FASTMCP_SERVER_PORT` environment variable.
 
 ```shell
 QDRANT_URL="http://localhost:6333" \
 COLLECTION_NAME="my-collection" \
-FASTMCP_PORT=1234 \
+FASTMCP_SERVER_PORT=1234 \
 uvx mcp-server-qdrant --transport sse
 ```
 
@@ -121,7 +121,7 @@ docker build -t mcp-server-qdrant .
 
 # Run the container
 docker run -p 8000:8000 \
-  -e FASTMCP_HOST="0.0.0.0" \
+  -e FASTMCP_SERVER_HOST="0.0.0.0" \
   -e QDRANT_URL="http://your-qdrant-server:6333" \
   -e QDRANT_API_KEY="your-api-key" \
   -e COLLECTION_NAME="your-collection" \
@@ -129,7 +129,7 @@ docker run -p 8000:8000 \
 ```
 
 > [!TIP]
-> Please note that we set `FASTMCP_HOST="0.0.0.0"` to make the server listen on all network interfaces. This is
+> Please note that we set `FASTMCP_SERVER_HOST="0.0.0.0"` to make the server listen on all network interfaces. This is
 > necessary when running the server in a Docker container.
 
 ### Installing via Smithery
