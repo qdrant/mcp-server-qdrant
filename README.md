@@ -65,6 +65,10 @@ important ones are listed below:
 | `FASTMCP_SERVER_DEBUG`                     | Enable debug mode                                               | `false`       |
 | `FASTMCP_SERVER_HOST`                      | Host address to bind the server to                              | `127.0.0.1`   |
 | `FASTMCP_SERVER_PORT`                      | Port to run the server on                                       | `8000`        |
+| `FASTMCP_SERVER_ON_DUPLICATE_RESOURCES`    | Behavior for duplicate resources (warn, error, replace, ignore) | `warn`        |
+| `FASTMCP_SERVER_ON_DUPLICATE_TOOLS`        | Behavior for duplicate tools (warn, error, replace, ignore)     | `warn`        |
+| `FASTMCP_SERVER_ON_DUPLICATE_PROMPTS`      | Behavior for duplicate prompts (warn, error, replace, ignore)   | `warn`        |
+| `FASTMCP_SERVER_DEPENDENCIES`              | List of dependencies to install in the server environment       | `[]`          |
 
 > [!NOTE]
 > Server-specific settings use the `FASTMCP_SERVER_` prefix. This may change in future versions.
