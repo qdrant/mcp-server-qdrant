@@ -1,5 +1,6 @@
 # mcp-server-qdrant: A Qdrant MCP server
 
+[![AgentAudit: Safe](https://img.shields.io/badge/AgentAudit-Safe-green?style=flat-square&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0xMiAxTDMgNXY2YzAgNS41NSAzLjg0IDEwLjc0IDkgMTIgNS4xNi0xLjI2IDktNi40NSA5LTEyVjVsLTktNHptLTIgMTZsLTQtNCA�NDEgMS40MUwxMCAxNC4xN2w3LjU5LTcuNTlMMTkgOGwtOS05eiIvPjwvc3ZnPg==)](https://www.agentaudit.dev/mcp-server-qdrant)
 [![smithery badge](https://smithery.ai/badge/mcp-server-qdrant)](https://smithery.ai/protocol/mcp-server-qdrant)
 
 > The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables
