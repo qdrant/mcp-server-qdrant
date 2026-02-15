@@ -46,6 +46,14 @@ class EmbeddingProviderSettings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
     )
+    openai_base_url: str = Field(
+        default="https://api.openai.com/v1",
+        validation_alias="OPENAI_BASE_URL",
+    )
+    openai_api_key: str = Field(
+        default="not-needed",
+        validation_alias="OPENAI_API_KEY",
+    )
 
 
 class FilterableField(BaseModel):
