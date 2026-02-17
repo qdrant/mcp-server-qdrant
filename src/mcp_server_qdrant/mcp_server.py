@@ -102,7 +102,7 @@ class QdrantMCPServer(FastMCP):
             metadata: Annotated[
                 Metadata | None,
                 Field(
-                    description="Extra metadata stored along with memorised information. Any json is accepted."
+                    description="Extra metadata stored along with memorized information. Any json is accepted."
                 ),
             ] = None,
         ) -> str:
