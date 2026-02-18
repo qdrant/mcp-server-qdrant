@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from qdrant_client import AsyncQdrantClient, models
 
 from mcp_server_qdrant.embeddings.base import EmbeddingProvider
-from mcp_server_qdrant.settings import METADATA_PATH
+from mcp_server_qdrant.settings import DOCUMENT_PATH, METADATA_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class QdrantConnector:
 
         # Add to Qdrant
         vector_name = self._embedding_provider.get_vector_name()
-        payload = {"document": entry.content, METADATA_PATH: entry.metadata}
+        payload = {DOCUMENT_PATH: entry.content, METADATA_PATH: entry.metadata}
         await self._client.upsert(
             collection_name=collection_name,
             points=[
@@ -131,8 +131,8 @@ class QdrantConnector:
 
         return [
             Entry(
-                content=result.payload["document"],
-                metadata=result.payload.get("metadata"),
+                content=result.payload[DOCUMENT_PATH],
+                metadata=result.payload.get(METADATA_PATH),
             )
             for result in search_results.points
         ]
