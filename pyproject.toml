@@ -1,6 +1,6 @@
 [project]
 name = "mcp-server-qdrant"
-version = "0.8.0"
+version = "0.8.1"
 description = "MCP server for retrieving context from a Qdrant vector database"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -8,8 +8,8 @@ license = "Apache-2.0"
 dependencies = [
     "fastembed>=0.6.0",
     "qdrant-client>=1.12.0",
-    "pydantic>=2.10.6",
-    "fastmcp>=2.7.0",
+    "pydantic>=2.10.6,<2.12.0",
+    "fastmcp==2.7.0",
 ]
 
 [build-system]
