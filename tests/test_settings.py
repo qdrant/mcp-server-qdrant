@@ -11,6 +11,18 @@ from mcp_server_qdrant.settings import (
 
 
 class TestQdrantSettings:
+    @pytest.fixture(autouse=True)
+    def clean_env(self, monkeypatch):
+        """Ensure no QDRANT environment variables interfere with tests."""
+        monkeypatch.delenv("QDRANT_URL", raising=False)
+        monkeypatch.delenv("QDRANT_API_KEY", raising=False)
+        monkeypatch.delenv("COLLECTION_NAME", raising=False)
+        monkeypatch.delenv("QDRANT_LOCAL_PATH", raising=False)
+        monkeypatch.delenv("QDRANT_SEARCH_LIMIT", raising=False)
+        monkeypatch.delenv("QDRANT_READ_ONLY", raising=False)
+        monkeypatch.delenv("EMBEDDING_MODEL", raising=False)
+        monkeypatch.delenv("EMBEDDING_PROVIDER", raising=False)
+
     def test_default_values(self):
         """Test that required fields raise errors when not provided."""
 
