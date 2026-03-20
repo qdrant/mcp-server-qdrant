@@ -236,3 +236,81 @@ async def test_nonexistent_collection_search(qdrant_connector):
 
     # Verify results
     assert len(results) == 0
+
+
+@pytest.mark.asyncio
+async def test_delete_entry(qdrant_connector):
+    """Test storing an entry and then deleting it."""
+    test_entry = Entry(
+        content="This memory should be deleted",
+        metadata={"temporary": True},
+    )
+    await qdrant_connector.store(test_entry)
+
+    # Verify it exists
+    results = await qdrant_connector.search("memory should be deleted")
+    assert len(results) == 1
+
+    # Delete it
+    deleted = await qdrant_connector.delete("memory should be deleted")
+    assert len(deleted) == 1
+    assert deleted[0].content == test_entry.content
+
+    # Verify it's gone
+    results = await qdrant_connector.search("memory should be deleted")
+    assert len(results) == 0
+
+
+@pytest.mark.asyncio
+async def test_delete_nonexistent_collection(qdrant_connector):
+    """Test deleting from a collection that doesn't exist."""
+    nonexistent = f"nonexistent_{uuid.uuid4().hex}"
+    deleted = await qdrant_connector.delete(
+        "test query", collection_name=nonexistent
+    )
+    assert len(deleted) == 0
+
+
+@pytest.mark.asyncio
+async def test_delete_no_match_empty_collection(qdrant_connector):
+    """Test deleting from an empty collection."""
+    deleted = await qdrant_connector.delete("nonexistent memory")
+    assert len(deleted) == 0
+
+
+@pytest.mark.asyncio
+async def test_delete_preserves_other_entries(qdrant_connector):
+    """Test that delete only removes the closest match."""
+    await qdrant_connector.store(Entry(content="Python is a programming language"))
+    await qdrant_connector.store(Entry(content="The Eiffel Tower is in Paris"))
+
+    # Delete only the Python entry
+    deleted = await qdrant_connector.delete("Python programming")
+    assert len(deleted) == 1
+    assert "Python" in deleted[0].content
+
+    # Eiffel Tower entry should still exist
+    results = await qdrant_connector.search("Eiffel Tower Paris")
+    assert len(results) == 1
+    assert "Eiffel" in results[0].content
+
+
+@pytest.mark.asyncio
+async def test_delete_custom_collection(qdrant_connector):
+    """Test deleting from a custom collection."""
+    custom_collection = f"custom_{uuid.uuid4().hex}"
+
+    await qdrant_connector.store(
+        Entry(content="Custom collection entry"),
+        collection_name=custom_collection,
+    )
+
+    deleted = await qdrant_connector.delete(
+        "custom collection", collection_name=custom_collection
+    )
+    assert len(deleted) == 1
+
+    results = await qdrant_connector.search(
+        "custom collection", collection_name=custom_collection
+    )
+    assert len(results) == 0

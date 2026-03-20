@@ -137,6 +137,53 @@ class QdrantConnector:
             for result in search_results.points
         ]
 
+    async def delete(
+        self,
+        query: str,
+        *,
+        collection_name: str | None = None,
+        limit: int = 1,
+    ) -> list[Entry]:
+        """
+        Delete the closest matching point(s) by semantic search.
+        Returns the deleted entries for confirmation.
+        :param query: The query to use for finding the entries to delete.
+        :param collection_name: The name of the collection to delete from, optional. If not provided,
+                                the default collection is used.
+        :param limit: The maximum number of entries to delete.
+        :return: A list of deleted entries.
+        """
+        collection_name = collection_name or self._default_collection_name
+        if not await self._client.collection_exists(collection_name):
+            return []
+
+        query_vector = await self._embedding_provider.embed_query(query)
+        vector_name = self._embedding_provider.get_vector_name()
+
+        results = await self._client.query_points(
+            collection_name=collection_name,
+            query=query_vector,
+            using=vector_name,
+            limit=limit,
+        )
+
+        if not results.points:
+            return []
+
+        point_ids = [r.id for r in results.points]
+        await self._client.delete(
+            collection_name=collection_name,
+            points_selector=models.PointIdsList(points=point_ids),
+        )
+
+        return [
+            Entry(
+                content=r.payload["document"],
+                metadata=r.payload.get(METADATA_PATH),
+            )
+            for r in results.points
+        ]
+
     async def _ensure_collection_exists(self, collection_name: str):
         """
         Ensure that the collection exists, creating it if necessary.

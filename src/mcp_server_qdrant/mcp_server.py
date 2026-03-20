@@ -164,8 +164,38 @@ class QdrantMCPServer(FastMCP):
                 content.append(self.format_entry(entry))
             return content
 
+        async def delete(
+            ctx: Context,
+            query: Annotated[
+                str,
+                Field(
+                    description="Semantic search query to find the memory to delete"
+                ),
+            ],
+            collection_name: Annotated[
+                str, Field(description="The collection to delete from")
+            ],
+        ) -> str:
+            """
+            Delete a memory from Qdrant by semantic search.
+            :param ctx: The context for the request.
+            :param query: The query to use for finding the memory to delete.
+            :param collection_name: The name of the collection to delete from, optional. If not provided,
+                                    the default collection is used.
+            :return: A message indicating what was deleted.
+            """
+            await ctx.debug(f"Deleting memory matching '{query}'")
+            deleted = await self.qdrant_connector.delete(
+                query, collection_name=collection_name
+            )
+            if not deleted:
+                return f"No matching memory found for: {query}"
+            contents = [entry.content[:100] for entry in deleted]
+            return f"Deleted {len(deleted)} memory(ies): {contents}"
+
         find_foo = find
         store_foo = store
+        delete_foo = delete
 
         filterable_conditions = (
             self.qdrant_settings.filterable_fields_dict_with_conditions()
@@ -183,6 +213,10 @@ class QdrantMCPServer(FastMCP):
             store_foo = make_partial_function(
                 store_foo, {"collection_name": self.qdrant_settings.collection_name}
             )
+            delete_foo = make_partial_function(
+                delete_foo,
+                {"collection_name": self.qdrant_settings.collection_name},
+            )
 
         self.tool(
             find_foo,
@@ -196,4 +230,9 @@ class QdrantMCPServer(FastMCP):
                 store_foo,
                 name="qdrant-store",
                 description=self.tool_settings.tool_store_description,
+            )
+            self.tool(
+                delete_foo,
+                name="qdrant-delete",
+                description=self.tool_settings.tool_delete_description,
             )

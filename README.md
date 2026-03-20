@@ -33,6 +33,13 @@ It acts as a semantic memory layer on top of the Qdrant database.
      - `collection_name` (string): Name of the collection to store the information in. This field is required if there are no default collection name.
                                    If there is a default collection name, this field is not enabled.
    - Returns: Information stored in the Qdrant database as separate messages
+3. `qdrant-delete`
+   - Delete a memory from the Qdrant database by semantic search
+   - Input:
+     - `query` (string): Semantic search query to find the memory to delete
+     - `collection_name` (string): Name of the collection to delete from. This field is required if there is no default collection name.
+                                   If there is a default collection name, this field is not enabled.
+   - Returns: Confirmation of deleted memory content
 
 ## Environment Variables
 
@@ -48,6 +55,7 @@ The configuration of the server is done using environment variables:
 | `EMBEDDING_MODEL`        | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
 | `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
+| `TOOL_DELETE_DESCRIPTION`| Custom description for the delete tool                              | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 
 Note: You cannot provide both `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
 
