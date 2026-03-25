@@ -30,6 +30,7 @@ class QdrantConnector:
     :param qdrant_api_key: The API key to use for the Qdrant server.
     :param collection_name: The name of the default collection to use. If not provided, each tool will require
                             the collection name to be provided.
+    :param vector_name: The name of the vector to be used. If not provided, the default vector will be used.
     :param embedding_provider: The embedding provider to use.
     :param qdrant_local_path: The path to the storage directory for the Qdrant client, if local mode is used.
     """
@@ -40,6 +41,7 @@ class QdrantConnector:
         qdrant_api_key: str | None,
         collection_name: str | None,
         embedding_provider: EmbeddingProvider,
+        vector_name: str | None = None,
         qdrant_local_path: str | None = None,
         field_indexes: dict[str, models.PayloadSchemaType] | None = None,
     ):
@@ -51,6 +53,7 @@ class QdrantConnector:
             location=qdrant_url, api_key=qdrant_api_key, path=qdrant_local_path
         )
         self._field_indexes = field_indexes
+        self._vector_name = vector_name
 
     async def get_collection_names(self) -> list[str]:
         """
@@ -75,16 +78,20 @@ class QdrantConnector:
         # ToDo: instead of embedding text explicitly, use `models.Document`,
         # it should unlock usage of server-side inference.
         embeddings = await self._embedding_provider.embed_documents([entry.content])
+        vector = (
+            embeddings[0]
+            if self._vector_name is None
+            else {self._vector_name: embeddings[0]}
+        )
 
         # Add to Qdrant
-        vector_name = self._embedding_provider.get_vector_name()
         payload = {"document": entry.content, METADATA_PATH: entry.metadata}
         await self._client.upsert(
             collection_name=collection_name,
             points=[
                 models.PointStruct(
                     id=uuid.uuid4().hex,
-                    vector={vector_name: embeddings[0]},
+                    vector=vector,
                     payload=payload,
                 )
             ],
@@ -118,13 +125,12 @@ class QdrantConnector:
         # it should unlock usage of server-side inference.
 
         query_vector = await self._embedding_provider.embed_query(query)
-        vector_name = self._embedding_provider.get_vector_name()
 
         # Search in Qdrant
         search_results = await self._client.query_points(
             collection_name=collection_name,
             query=query_vector,
-            using=vector_name,
+            using=self._vector_name,
             limit=limit,
             query_filter=query_filter,
         )
@@ -146,17 +152,17 @@ class QdrantConnector:
         if not collection_exists:
             # Create the collection with the appropriate vector size
             vector_size = self._embedding_provider.get_vector_size()
+            vector_params = models.VectorParams(
+                size=vector_size,
+                distance=models.Distance.COSINE,
+            )
 
             # Use the vector name as defined in the embedding provider
-            vector_name = self._embedding_provider.get_vector_name()
             await self._client.create_collection(
                 collection_name=collection_name,
-                vectors_config={
-                    vector_name: models.VectorParams(
-                        size=vector_size,
-                        distance=models.Distance.COSINE,
-                    )
-                },
+                vectors_config=vector_params
+                if self._vector_name is None
+                else {self._vector_name: vector_params},
             )
 
             # Create payload indexes if configured

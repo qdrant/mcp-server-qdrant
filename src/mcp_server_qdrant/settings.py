@@ -82,6 +82,7 @@ class QdrantSettings(BaseSettings):
         default=None, validation_alias="COLLECTION_NAME"
     )
     local_path: str | None = Field(default=None, validation_alias="QDRANT_LOCAL_PATH")
+    vector_name: str | None = Field(default=None, validation_alias="QDRANT_VECTOR_NAME")
     search_limit: int = Field(default=10, validation_alias="QDRANT_SEARCH_LIMIT")
     read_only: bool = Field(default=False, validation_alias="QDRANT_READ_ONLY")
 
