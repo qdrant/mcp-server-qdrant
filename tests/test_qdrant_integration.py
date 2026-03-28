@@ -236,3 +236,79 @@ async def test_nonexistent_collection_search(qdrant_connector):
 
     # Verify results
     assert len(results) == 0
+
+
+@pytest.mark.asyncio
+async def test_edit_updates_best_matching_entry(qdrant_connector):
+    """Test editing the closest matching entry."""
+    original_entry = Entry(
+        content="Paris is the capital of France",
+        metadata={"source": "atlas", "version": 1},
+    )
+    await qdrant_connector.store(original_entry)
+
+    updated_entry = await qdrant_connector.edit(
+        "capital of France",
+        Entry(
+            content="Paris is the capital and largest city of France",
+            metadata={"source": "atlas", "version": 2},
+        ),
+    )
+
+    assert updated_entry is not None
+    assert updated_entry.content == "Paris is the capital and largest city of France"
+    assert updated_entry.metadata == {"source": "atlas", "version": 2}
+
+    results = await qdrant_connector.search("largest city of France")
+    assert len(results) == 1
+    assert results[0].content == updated_entry.content
+    assert results[0].metadata == updated_entry.metadata
+
+
+@pytest.mark.asyncio
+async def test_edit_preserves_metadata_when_not_reprovided(qdrant_connector):
+    """Test editing content while keeping the original metadata."""
+    await qdrant_connector.store(
+        Entry(
+            content="Mercury is the closest planet to the Sun",
+            metadata={"source": "encyclopedia", "verified": True},
+        )
+    )
+
+    updated_entry = await qdrant_connector.edit(
+        "closest planet to the Sun",
+        Entry(content="Mercury is the smallest planet in the Solar System"),
+    )
+
+    assert updated_entry is not None
+    assert updated_entry.metadata == {"source": "encyclopedia", "verified": True}
+
+    results = await qdrant_connector.search("smallest planet in the Solar System")
+    assert len(results) == 1
+    assert results[0].content == "Mercury is the smallest planet in the Solar System"
+    assert results[0].metadata == {"source": "encyclopedia", "verified": True}
+
+
+@pytest.mark.asyncio
+async def test_edit_returns_none_when_collection_or_match_is_missing(qdrant_connector):
+    """Test edit returns None when nothing can be updated."""
+    missing_collection = f"missing_collection_{uuid.uuid4().hex}"
+
+    result = await qdrant_connector.edit(
+        "unknown entry",
+        Entry(content="Replacement"),
+        collection_name=missing_collection,
+    )
+
+    assert result is None
+
+    await qdrant_connector.store(Entry(content="Only stored entry"))
+
+    no_match = await qdrant_connector.edit(
+        "totally unrelated search phrase",
+        Entry(content="Should not replace anything"),
+        collection_name=qdrant_connector._default_collection_name,
+        query_filter={"must": [{"key": "metadata.topic", "match": {"value": "none"}}]},
+    )
+
+    assert no_match is None
