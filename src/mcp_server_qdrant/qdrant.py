@@ -137,6 +137,63 @@ class QdrantConnector:
             for result in search_results.points
         ]
 
+    async def edit(
+        self,
+        query: str,
+        entry: Entry,
+        *,
+        collection_name: str | None = None,
+        query_filter: models.Filter | None = None,
+    ) -> Entry | None:
+        """
+        Update the closest matching point found by semantic search.
+        If metadata is not provided on the replacement entry, the existing metadata is preserved.
+        :param query: The query used to find the entry to update.
+        :param entry: The replacement entry to write back into Qdrant.
+        :param collection_name: The name of the collection to edit in, optional. If not provided,
+                                the default collection is used.
+        :param query_filter: The filter to apply to the query, if any.
+        :return: The updated entry, or None if no matching point was found.
+        """
+        collection_name = collection_name or self._default_collection_name
+        collection_exists = await self._client.collection_exists(collection_name)
+        if not collection_exists:
+            return None
+
+        query_vector = await self._embedding_provider.embed_query(query)
+        vector_name = self._embedding_provider.get_vector_name()
+        search_results = await self._client.query_points(
+            collection_name=collection_name,
+            query=query_vector,
+            using=vector_name,
+            limit=1,
+            query_filter=query_filter,
+        )
+
+        if not search_results.points:
+            return None
+
+        existing_point = search_results.points[0]
+        existing_metadata = existing_point.payload.get(METADATA_PATH)
+        updated_metadata = (
+            entry.metadata if entry.metadata is not None else existing_metadata
+        )
+        embeddings = await self._embedding_provider.embed_documents([entry.content])
+        payload = {"document": entry.content, METADATA_PATH: updated_metadata}
+
+        await self._client.upsert(
+            collection_name=collection_name,
+            points=[
+                models.PointStruct(
+                    id=existing_point.id,
+                    vector={vector_name: embeddings[0]},
+                    payload=payload,
+                )
+            ],
+        )
+
+        return Entry(content=entry.content, metadata=updated_metadata)
+
     async def _ensure_collection_exists(self, collection_name: str):
         """
         Ensure that the collection exists, creating it if necessary.
