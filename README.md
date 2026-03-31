@@ -43,6 +43,7 @@ The configuration of the server is done using environment variables:
 | `QDRANT_URL`             | URL of the Qdrant server                                            | None                                                              |
 | `QDRANT_API_KEY`         | API key for the Qdrant server                                       | None                                                              |
 | `COLLECTION_NAME`        | Name of the default collection to use.                              | None                                                              |
+| `QDRANT_VECTOR_NAME`     | Name of the vector to be used.                                      | None                                                              |
 | `QDRANT_LOCAL_PATH`      | Path to the local Qdrant database (alternative to `QDRANT_URL`)     | None                                                              |
 | `EMBEDDING_PROVIDER`     | Embedding provider to use (currently only "fastembed" is supported) | `fastembed`                                                       |
 | `EMBEDDING_MODEL`        | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
@@ -50,6 +51,9 @@ The configuration of the server is done using environment variables:
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 
 Note: You cannot provide both `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
+
+> [!IMPORTANT]
+> `QDRANT_VECTOR_NAME` will be used for new collections, and the unnamed default vector is used if it is not set. For existing collections the embedding model name is used if it already exists to ensure backward compatibility.
 
 > [!IMPORTANT]
 > Command-line arguments are not supported anymore! Please use environment variables for all configuration.

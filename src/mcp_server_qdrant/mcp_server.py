@@ -66,12 +66,13 @@ class QdrantMCPServer(FastMCP):
         assert self.embedding_provider is not None, "Embedding provider is required"
 
         self.qdrant_connector = QdrantConnector(
-            qdrant_settings.location,
-            qdrant_settings.api_key,
-            qdrant_settings.collection_name,
-            self.embedding_provider,
-            qdrant_settings.local_path,
-            make_indexes(qdrant_settings.filterable_fields_dict()),
+            qdrant_url=qdrant_settings.location,
+            qdrant_api_key=qdrant_settings.api_key,
+            collection_name=qdrant_settings.collection_name,
+            embedding_provider=self.embedding_provider,
+            qdrant_local_path=qdrant_settings.local_path,
+            vector_name=qdrant_settings.vector_name,
+            field_indexes=make_indexes(qdrant_settings.filterable_fields_dict()),
         )
 
         super().__init__(name=name, instructions=instructions, **settings)
