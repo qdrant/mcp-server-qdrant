@@ -6,18 +6,18 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 dependencies = [
-    "fastembed>=0.6.0",
-    "qdrant-client>=1.12.0",
-    "pydantic>=2.10.6,<2.12.0",
-    "fastmcp==2.7.0",
+    "fastembed>=0.8.0",
+    "qdrant-client>=1.17.0",
+    "pydantic>=2.12.0",
+    "fastmcp>=3.0.0,<4",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "ipdb>=0.13.13",
     "isort>=6.0.1",
     "mypy>=1.9.0",
