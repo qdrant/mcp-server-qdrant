@@ -53,7 +53,7 @@ The configuration of the server is done using environment variables:
 Note: You cannot provide both `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
 
 > [!IMPORTANT]
-> If you are upgrading mcp-server-qdrant with an existing collection you will have to set `QDRANT_VECTOR_NAME` to the name used in the collection. Previously this was computed from the name of the embedding model.
+> `QDRANT_VECTOR_NAME` will be used for new collections, and the unnamed default vector is used if it is not set. For existing collections the embedding model name is used if it already exists to ensure backward compatibility.
 
 > [!IMPORTANT]
 > Command-line arguments are not supported anymore! Please use environment variables for all configuration.

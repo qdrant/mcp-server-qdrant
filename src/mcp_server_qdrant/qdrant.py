@@ -174,3 +174,16 @@ class QdrantConnector:
                         field_name=field_name,
                         field_schema=field_type,
                     )
+        else:
+            points: list[models.ScoredPoint] = (
+                await self._client.query_points(
+                    collection_name=collection_name, limit=1, with_vectors=True
+                )
+            ).points
+            model_vector_name = self._embedding_provider.get_vector_name()
+            if (
+                len(points) > 0
+                and isinstance(points[0].vector, dict)
+                and model_vector_name in points[0].vector
+            ):
+                self._vector_name = model_vector_name
