@@ -56,7 +56,7 @@ Note: You cannot provide both `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same t
 
 ### FastMCP Environment Variables
 
-Since `mcp-server-qdrant` is based on FastMCP, it also supports all the FastMCP environment variables. The most
+Since `mcp-server-qdrant` is based on FastMCP, it also supports all the [FastMCP environment variables](https://gofastmcp.com/more/settings). The most
 important ones are listed below:
 
 | Environment Variable                  | Description                                               | Default Value |
@@ -65,10 +65,7 @@ important ones are listed below:
 | `FASTMCP_LOG_LEVEL`                   | Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) | `INFO`        |
 | `FASTMCP_HOST`                        | Host address to bind the server to                        | `127.0.0.1`   |
 | `FASTMCP_PORT`                        | Port to run the server on                                 | `8000`        |
-| `FASTMCP_WARN_ON_DUPLICATE_RESOURCES` | Show warnings for duplicate resources                     | `true`        |
-| `FASTMCP_WARN_ON_DUPLICATE_TOOLS`     | Show warnings for duplicate tools                         | `true`        |
-| `FASTMCP_WARN_ON_DUPLICATE_PROMPTS`   | Show warnings for duplicate prompts                       | `true`        |
-| `FASTMCP_DEPENDENCIES`                | List of dependencies to install in the server environment | `[]`          |
+| `FASTMCP_SERVER_DEPENDENCIES`           | List of dependencies to install in the server environment | `[]`          |
 
 ## Installation
 
