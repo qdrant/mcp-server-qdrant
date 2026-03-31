@@ -1,26 +1,31 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings
 
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
 
-DEFAULT_TOOL_STORE_DESCRIPTION = (
-    "Keep the memory for later use, when you are asked to remember something."
-)
-DEFAULT_TOOL_FIND_DESCRIPTION = (
-    "Look up memories in Qdrant. Use this tool when you need to: \n"
-    " - Find memories by their content \n"
-    " - Access memories for further analysis \n"
-    " - Get some personal information about the user"
-)
+
 
 METADATA_PATH = "metadata"
+
+DEFAULT_TOOL_STORE_DESCRIPTION = (
+    "Store information in the Qdrant vector database. "
+    "The information will be stored in a collection with the name provided in the collection_name parameter. "
+    "The information will be embedded using the configured embedding model and stored in the collection. "
+    "The information can be retrieved later using the find tool."
+)
+DEFAULT_TOOL_FIND_DESCRIPTION = (
+    "Find information in the Qdrant vector database. "
+    "The information will be retrieved from a collection with the name provided in the collection_name parameter. "
+    "The query will be embedded using the configured embedding model and used to search for similar information in the collection. "
+    "The results will be returned as a list of strings."
+)
 
 
 class ToolSettings(BaseSettings):
     """
-    Configuration for all the tools.
+    Configuration for the tools.
     """
 
     tool_store_description: str = Field(
@@ -46,6 +51,18 @@ class EmbeddingProviderSettings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
     )
+    openrouter_api_key: Optional[str] = Field(
+        default=None,
+        validation_alias="OPENROUTER_API_KEY",
+    )
+
+    @model_validator(mode="after")
+    def check_openrouter_api_key(self) -> "EmbeddingProviderSettings":
+        if self.provider_type == EmbeddingProviderType.OPENROUTER and not self.openrouter_api_key:
+            raise ValueError(
+                "OPENROUTER_API_KEY is required when using the OpenRouter embedding provider."
+            )
+        return self
 
 
 class FilterableField(BaseModel):
@@ -84,9 +101,7 @@ class QdrantSettings(BaseSettings):
     local_path: str | None = Field(default=None, validation_alias="QDRANT_LOCAL_PATH")
     search_limit: int = Field(default=10, validation_alias="QDRANT_SEARCH_LIMIT")
     read_only: bool = Field(default=False, validation_alias="QDRANT_READ_ONLY")
-
     filterable_fields: list[FilterableField] | None = Field(default=None)
-
     allow_arbitrary_filter: bool = Field(
         default=False, validation_alias="QDRANT_ALLOW_ARBITRARY_FILTER"
     )
