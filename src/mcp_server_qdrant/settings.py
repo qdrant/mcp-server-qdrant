@@ -84,11 +84,29 @@ class QdrantSettings(BaseSettings):
     local_path: str | None = Field(default=None, validation_alias="QDRANT_LOCAL_PATH")
     search_limit: int = Field(default=10, validation_alias="QDRANT_SEARCH_LIMIT")
     read_only: bool = Field(default=False, validation_alias="QDRANT_READ_ONLY")
+    vector_name: str | None = Field(
+        default=None,
+        validation_alias="QDRANT_VECTOR_NAME",
+        description=(
+            "The name of the vector to use in the collection. "
+            "If not set, uses the auto-generated name from the embedding provider. "
+            "Set to empty string to use unnamed vectors (for pre-existing collections)."
+        ),
+    )
 
     filterable_fields: list[FilterableField] | None = Field(default=None)
 
     allow_arbitrary_filter: bool = Field(
         default=False, validation_alias="QDRANT_ALLOW_ARBITRARY_FILTER"
+    )
+    content_payload_key: str = Field(
+        default="document",
+        validation_alias="QDRANT_CONTENT_PAYLOAD_KEY",
+        description=(
+            "The key used in the payload to store the document content. "
+            "Default is 'document'. Set to 'content' for compatibility with "
+            "LangChain-style payloads."
+        ),
     )
 
     def filterable_fields_dict(self) -> dict[str, FilterableField]:
