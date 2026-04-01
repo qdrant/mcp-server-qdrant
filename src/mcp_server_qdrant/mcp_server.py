@@ -92,13 +92,23 @@ class QdrantMCPServer(FastMCP):
 
         async def store(
             ctx: Context,
-            information: Annotated[str, Field(description="Text to store")],
+            information: Annotated[
+                str, 
+                Field(
+                    description="Text to store", 
+                    max_length=50000 # PATCH: Prevent Local OOM Crashes
+                )
+            ],
             collection_name: Annotated[
                 str, Field(description="The collection to store the information in")
             ],
-            # The `metadata` parameter is defined as non-optional, but it can be None.
-            # If we set it to be optional, some of the MCP clients, like Cursor, cannot
-            # handle the optional parameter correctly.
+            # PATCH: Mandatory Agentic Guardrail
+            confirm_store: Annotated[
+                bool,
+                Field(
+                    description="Mandatory security flag. You MUST prompt the user for confirmation before setting this to true. If false, the operation will be rejected."
+                )
+            ] = False,
             metadata: Annotated[
                 Metadata | None,
                 Field(
@@ -115,6 +125,10 @@ class QdrantMCPServer(FastMCP):
                                     the default collection is used.
             :return: A message indicating that the information was stored.
             """
+            # PATCH: Enforce the confirmation
+            if not confirm_store:
+                return "Error: Storage operation cancelled. 'confirm_store' flag must be explicitly set to true after receiving human confirmation."
+            
             await ctx.debug(f"Storing information {information} in Qdrant")
 
             entry = Entry(content=information, metadata=metadata)
@@ -126,11 +140,22 @@ class QdrantMCPServer(FastMCP):
 
         async def find(
             ctx: Context,
-            query: Annotated[str, Field(description="What to search for")],
+            query: Annotated[
+                str, 
+                Field(
+                    description="What to search for",
+                    max_length=10000 # PATCH: Prevent Local OOM Crashes
+                )
+            ],
             collection_name: Annotated[
                 str, Field(description="The collection to search in")
             ],
             query_filter: ArbitraryFilter | None = None,
+            #Metadata Firewall
+            selected_metadata_keys: Annotated[
+                list[str] | None,
+                Field(description="A list of specific metadata keys to return. Use this to prevent pulling unnecessary or sensitive data into context.")
+            ] = None,
         ) -> list[str] | None:
             """
             Find memories in Qdrant.
@@ -161,7 +186,14 @@ class QdrantMCPServer(FastMCP):
                 f"Results for the query '{query}'",
             ]
             for entry in entries:
+                #Apply the metadata firewall before formatting
+                if entry.metadata and selected_metadata_keys is not None:
+                    entry.metadata = {
+                        k: v for k, v in entry.metadata.items() 
+                        if k in selected_metadata_keys
+                    }
                 content.append(self.format_entry(entry))
+                
             return content
 
         find_foo = find
