@@ -8,6 +8,10 @@ from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
 DEFAULT_TOOL_STORE_DESCRIPTION = (
     "Keep the memory for later use, when you are asked to remember something."
 )
+DEFAULT_TOOL_DELETE_DESCRIPTION = (
+    "Delete a memory from Qdrant by semantic search. "
+    "The closest matching memory will be removed."
+)
 DEFAULT_TOOL_FIND_DESCRIPTION = (
     "Look up memories in Qdrant. Use this tool when you need to: \n"
     " - Find memories by their content \n"
@@ -30,6 +34,10 @@ class ToolSettings(BaseSettings):
     tool_find_description: str = Field(
         default=DEFAULT_TOOL_FIND_DESCRIPTION,
         validation_alias="TOOL_FIND_DESCRIPTION",
+    )
+    tool_delete_description: str = Field(
+        default=DEFAULT_TOOL_DELETE_DESCRIPTION,
+        validation_alias="TOOL_DELETE_DESCRIPTION",
     )
 
 
