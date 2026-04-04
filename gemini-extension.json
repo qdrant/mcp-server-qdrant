@@ -1,0 +1,36 @@
+{
+    "name": "qdrant",
+    "version": "0.1.0",
+    "description": "Store and retrieve memories in the Qdrant vector search engine.",
+    "mcpServers": {
+        "qdrant": {
+            "command": "uvx",
+            "args": [
+                "mcp-server-qdrant"
+            ]
+        }
+    },
+    "settings": [
+        {
+            "name": "Qdrant URL",
+            "description": "Connection URL for your Qdrant database (e.g., https://xyz-example.eu-central.aws.cloud.qdrant.io:6333)",
+            "envVar": "QDRANT_URL"
+        },
+        {
+            "name": "Qdrant API Key",
+            "description": "API Key for your Qdrant database",
+            "envVar": "QDRANT_API_KEY",
+            "sensitive": true
+        },
+        {
+            "name": "Collection Name",
+            "description": "Name of the collection to use",
+            "envVar": "COLLECTION_NAME"
+        },
+        {
+            "name": "Embedding Model",
+            "description": "Embedding model to use (e.g., sentence-transformers/all-MiniLM-L6-v2)",
+            "envVar": "EMBEDDING_MODEL"
+        }
+    ]
+}
