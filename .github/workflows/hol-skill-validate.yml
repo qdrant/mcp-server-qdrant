@@ -1,0 +1,24 @@
+name: HOL Skill Validate
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'SKILL.md'
+      - 'skill.json'
+  pull_request:
+    paths:
+      - 'SKILL.md'
+      - 'skill.json'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: hashgraph-online/skill-publish@96e6eb1e52ba479d15067aef9dde83ca94afb06a
+        with:
+          mode: validate
