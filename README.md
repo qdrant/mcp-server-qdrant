@@ -33,6 +33,15 @@ It acts as a semantic memory layer on top of the Qdrant database.
      - `collection_name` (string): Name of the collection to store the information in. This field is required if there are no default collection name.
                                    If there is a default collection name, this field is not enabled.
    - Returns: Information stored in the Qdrant database as separate messages
+3. `qdrant-edit`
+   - Update the closest matching information stored in the Qdrant database
+   - Input:
+     - `query` (string): Query used to find the existing memory to update
+     - `information` (string): Replacement information to store
+     - `metadata` (JSON): Optional replacement metadata. If omitted, existing metadata is preserved.
+     - `collection_name` (string): Name of the collection to update. This field is required if there is no default collection name.
+                                    If there is a default collection name, this field is not enabled.
+   - Returns: Confirmation message
 
 ## Environment Variables
 
@@ -47,6 +56,7 @@ The configuration of the server is done using environment variables:
 | `EMBEDDING_PROVIDER`     | Embedding provider to use (currently only "fastembed" is supported) | `fastembed`                                                       |
 | `EMBEDDING_MODEL`        | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
 | `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
+| `TOOL_EDIT_DESCRIPTION`  | Custom description for the edit tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 
 Note: You cannot provide both `QDRANT_URL` and `QDRANT_LOCAL_PATH` at the same time.
