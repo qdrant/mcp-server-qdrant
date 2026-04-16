@@ -164,8 +164,71 @@ class QdrantMCPServer(FastMCP):
                 content.append(self.format_entry(entry))
             return content
 
+        async def hybrid_find(
+            ctx: Context,
+            query: Annotated[str, Field(description="What to search for")],
+            collection_name: Annotated[
+                str, Field(description="The collection to search in")
+            ],
+            fusion_method: Annotated[
+                str, Field(description="Fusion method: 'rrf' or 'dbsf'")
+            ] = "rrf",
+            dense_limit: Annotated[
+                int, Field(description="Max results from semantic search")
+            ] = 20,
+            sparse_limit: Annotated[
+                int, Field(description="Max results from keyword search")
+            ] = 20,
+            final_limit: Annotated[
+                int, Field(description="Final number of results after fusion")
+            ] = 10,
+            query_filter: ArbitraryFilter | None = None,
+        ) -> list[str] | None:
+            """
+            Hybrid search combining semantic similarity and keyword matching.
+            Uses Qdrant's RRF/DBSF fusion for optimal search results.
+
+            :param ctx: The context for the request.
+            :param query: The query to use for the search.
+            :param collection_name: The name of the collection to search in.
+            :param fusion_method: Fusion method - 'rrf' (Reciprocal Rank Fusion) or 'dbsf' (Distribution-Based Score Fusion).
+            :param dense_limit: Maximum results from dense vector search.
+            :param sparse_limit: Maximum results from sparse vector search.
+            :param final_limit: Maximum final results after fusion.
+            :param query_filter: The filter to apply to the query.
+            :return: A list of entries found or None.
+            """
+            await ctx.debug(
+                f"Hybrid search for query '{query}' using fusion method '{fusion_method}'"
+            )
+
+            parsed_query_filter = (
+                models.Filter(**query_filter) if query_filter else None
+            )
+
+            entries = await self.qdrant_connector.find_hybrid(
+                query,
+                collection_name=collection_name,
+                fusion_method=fusion_method,
+                dense_limit=dense_limit,
+                sparse_limit=sparse_limit,
+                final_limit=final_limit,
+                query_filter=parsed_query_filter,
+            )
+
+            if not entries:
+                return None
+
+            content = [
+                f"Hybrid search results for '{query}' (fusion: {fusion_method})",
+            ]
+            for entry in entries:
+                content.append(self.format_entry(entry))
+            return content
+
         find_foo = find
         store_foo = store
+        hybrid_find_foo = hybrid_find
 
         filterable_conditions = (
             self.qdrant_settings.filterable_fields_dict_with_conditions()
@@ -173,8 +236,12 @@ class QdrantMCPServer(FastMCP):
 
         if len(filterable_conditions) > 0:
             find_foo = wrap_filters(find_foo, filterable_conditions)
+            hybrid_find_foo = wrap_filters(hybrid_find_foo, filterable_conditions)
         elif not self.qdrant_settings.allow_arbitrary_filter:
             find_foo = make_partial_function(find_foo, {"query_filter": None})
+            hybrid_find_foo = make_partial_function(
+                hybrid_find_foo, {"query_filter": None}
+            )
 
         if self.qdrant_settings.collection_name:
             find_foo = make_partial_function(
@@ -183,11 +250,21 @@ class QdrantMCPServer(FastMCP):
             store_foo = make_partial_function(
                 store_foo, {"collection_name": self.qdrant_settings.collection_name}
             )
+            hybrid_find_foo = make_partial_function(
+                hybrid_find_foo,
+                {"collection_name": self.qdrant_settings.collection_name},
+            )
 
         self.tool(
             find_foo,
             name="qdrant-find",
             description=self.tool_settings.tool_find_description,
+        )
+
+        self.tool(
+            hybrid_find_foo,
+            name="qdrant-hybrid-find",
+            description=self.tool_settings.tool_hybrid_find_description,
         )
 
         if not self.qdrant_settings.read_only:

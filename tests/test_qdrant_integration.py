@@ -236,3 +236,115 @@ async def test_nonexistent_collection_search(qdrant_connector):
 
     # Verify results
     assert len(results) == 0
+
+
+@pytest.mark.asyncio
+async def test_hybrid_search_basic(qdrant_connector):
+    """Test basic hybrid search functionality (fallback to dense search when sparse not available)."""
+    # Store test entries
+    entries = [
+        Entry(
+            content="Python programming tutorial for machine learning algorithms",
+            metadata={"category": "programming", "language": "python"},
+        ),
+        Entry(
+            content="JavaScript web development with React framework",
+            metadata={"category": "web", "language": "javascript"},
+        ),
+        Entry(
+            content="Machine learning models using scikit-learn library",
+            metadata={"category": "ml", "language": "python"},
+        ),
+    ]
+
+    for entry in entries:
+        await qdrant_connector.store(entry)
+
+    # Test hybrid search (should fallback to dense search since no sparse vectors configured)
+    results = await qdrant_connector.find_hybrid("Python machine learning")
+
+    # Verify results - should find Python ML content
+    assert len(results) > 0
+    # Should find entries containing Python and machine learning content
+    python_ml_results = [
+        r
+        for r in results
+        if "python" in r.content.lower() or "machine" in r.content.lower()
+    ]
+    assert len(python_ml_results) >= 1
+
+
+@pytest.mark.asyncio
+async def test_hybrid_search_fusion_methods(qdrant_connector):
+    """Test hybrid search with different fusion methods."""
+    # Store a test entry
+    test_entry = Entry(
+        content="Advanced vector search algorithms in distributed systems",
+        metadata={"topic": "algorithms", "complexity": "advanced"},
+    )
+    await qdrant_connector.store(test_entry)
+
+    # Test RRF fusion method (default)
+    rrf_results = await qdrant_connector.find_hybrid(
+        "vector search algorithms", fusion_method="rrf", final_limit=5
+    )
+
+    # Test DBSF fusion method
+    dbsf_results = await qdrant_connector.find_hybrid(
+        "vector search algorithms", fusion_method="dbsf", final_limit=5
+    )
+
+    # Both should return results (fallback to dense search)
+    assert len(rrf_results) > 0
+    assert len(dbsf_results) > 0
+
+    # Results should contain our test entry
+    assert any("vector search" in r.content.lower() for r in rrf_results)
+    assert any("vector search" in r.content.lower() for r in dbsf_results)
+
+
+@pytest.mark.asyncio
+async def test_hybrid_search_empty_collection(qdrant_connector):
+    """Test hybrid search on an empty collection."""
+    results = await qdrant_connector.find_hybrid("test query")
+    assert len(results) == 0
+
+
+@pytest.mark.asyncio
+async def test_hybrid_search_nonexistent_collection(qdrant_connector):
+    """Test hybrid search on a collection that doesn't exist."""
+    nonexistent_collection = f"nonexistent_hybrid_{uuid.uuid4().hex}"
+    results = await qdrant_connector.find_hybrid(
+        "test query", collection_name=nonexistent_collection
+    )
+    assert len(results) == 0
+
+
+@pytest.mark.asyncio
+async def test_hybrid_search_limit_parameters(qdrant_connector):
+    """Test hybrid search with different limit parameters."""
+    # Store multiple test entries
+    entries = [
+        Entry(
+            content=f"Test document number {i} about artificial intelligence and neural networks",
+            metadata={"index": i},
+        )
+        for i in range(15)
+    ]
+
+    for entry in entries:
+        await qdrant_connector.store(entry)
+
+    # Test with custom limits
+    results = await qdrant_connector.find_hybrid(
+        "artificial intelligence", dense_limit=10, sparse_limit=10, final_limit=3
+    )
+
+    # Should respect final_limit
+    assert len(results) <= 3
+
+    # Should find relevant content
+    assert all(
+        "artificial" in r.content.lower() or "intelligence" in r.content.lower()
+        for r in results
+    )
