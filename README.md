@@ -14,6 +14,10 @@ This repository is an example of how to create a MCP server for [Qdrant](https:/
 An official Model Context Protocol server for keeping and retrieving memories in the Qdrant vector search engine.
 It acts as a semantic memory layer on top of the Qdrant database.
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/qdrant-mcp-server-qdrant).
+
 ## Components
 
 ### Tools
