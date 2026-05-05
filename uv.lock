@@ -976,6 +976,7 @@ dev = [
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "pytest-mcp-plugin" },
     { name = "ruff" },
 ]
 
@@ -996,6 +997,7 @@ dev = [
     { name = "pyright", specifier = ">=1.1.389" },
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "pytest-asyncio", specifier = ">=0.23.0" },
+    { name = "pytest-mcp-plugin", specifier = ">=0.2.1" },
     { name = "ruff", specifier = ">=0.8.0" },
 ]
 
@@ -1878,6 +1880,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/90/2c/8af215c0f776415f3590cac4f9086ccefd6fd463befeae41cd4d3f193e5a/pytest_asyncio-1.3.0.tar.gz", hash = "sha256:d7f52f36d231b80ee124cd216ffb19369aa168fc10095013c6b014a34d3ee9e5", size = 50087, upload-time = "2025-11-10T16:07:47.256Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e5/35/f8b19922b6a25bc0880171a2f1a003eaeb93657475193ab516fd87cac9da/pytest_asyncio-1.3.0-py3-none-any.whl", hash = "sha256:611e26147c7f77640e6d0a92a38ed17c3e9848063698d5c93d5aa7aa11cebff5", size = 15075, upload-time = "2025-11-10T16:07:45.537Z" },
+]
+
+[[package]]
+name = "pytest-mcp-plugin"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "pytest" },
+    { name = "rich" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ba/8a/e965fc658b8f8fc44b568df8331b0568b8237f3a0d0550233f01eb037878/pytest_mcp_plugin-0.2.1.tar.gz", hash = "sha256:2a741b93bd7e6f304d6d97b9a49fbc19a91f9f001d3820324756a89852928420", size = 53736, upload-time = "2026-05-05T10:06:29.891Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/72/1f/869f01aeb7569b2f982a7075f1302c1e1cc23ced90ca64a569a3fd47aefd/pytest_mcp_plugin-0.2.1-py3-none-any.whl", hash = "sha256:331528b441e432f1863edb5bbad420cc7722e75874c03162dcef8d0676a18aa5", size = 38091, upload-time = "2026-05-05T10:06:27.971Z" },
 ]
 
 [[package]]
