@@ -25,7 +25,7 @@ dev-dependencies = [
     "pyright>=1.1.389",
     "pytest>=8.3.3",
     "pytest-asyncio>=0.23.0",
-    "pytest-mcp-plugin>=0.2.1",
+    "pytest-mcp-plugin>=0.2.3",
     "ruff>=0.8.0",
 ]
 

@@ -997,7 +997,7 @@ dev = [
     { name = "pyright", specifier = ">=1.1.389" },
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "pytest-asyncio", specifier = ">=0.23.0" },
-    { name = "pytest-mcp-plugin", specifier = ">=0.2.1" },
+    { name = "pytest-mcp-plugin", specifier = ">=0.2.3" },
     { name = "ruff", specifier = ">=0.8.0" },
 ]
 
@@ -1884,7 +1884,7 @@ wheels = [
 
 [[package]]
 name = "pytest-mcp-plugin"
-version = "0.2.1"
+version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1892,9 +1892,9 @@ dependencies = [
     { name = "rich" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ba/8a/e965fc658b8f8fc44b568df8331b0568b8237f3a0d0550233f01eb037878/pytest_mcp_plugin-0.2.1.tar.gz", hash = "sha256:2a741b93bd7e6f304d6d97b9a49fbc19a91f9f001d3820324756a89852928420", size = 53736, upload-time = "2026-05-05T10:06:29.891Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/ba/3b8141477bb63a1a4b07ac145d3ca8c74c558af2133b558e23d6b0df59f1/pytest_mcp_plugin-0.2.3.tar.gz", hash = "sha256:5d862c24adcdaa33187e17651f5bd17530e4cf13a00d103a529e7936db6044f0", size = 70232, upload-time = "2026-05-05T11:03:44.335Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/72/1f/869f01aeb7569b2f982a7075f1302c1e1cc23ced90ca64a569a3fd47aefd/pytest_mcp_plugin-0.2.1-py3-none-any.whl", hash = "sha256:331528b441e432f1863edb5bbad420cc7722e75874c03162dcef8d0676a18aa5", size = 38091, upload-time = "2026-05-05T10:06:27.971Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/e2/87254fcc0c0b3141ffdbd87319f7bf95353934d8ce58246b1ed442a7e1e9/pytest_mcp_plugin-0.2.3-py3-none-any.whl", hash = "sha256:3817593d0f0110c373cd5d85bce15a391afb602a411955a0c53ce533af58c2a1", size = 54865, upload-time = "2026-05-05T11:03:42.496Z" },
 ]
 
 [[package]]
