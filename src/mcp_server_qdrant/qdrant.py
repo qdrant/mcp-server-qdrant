@@ -47,9 +47,24 @@ class QdrantConnector:
         self._qdrant_api_key = qdrant_api_key
         self._default_collection_name = collection_name
         self._embedding_provider = embedding_provider
-        self._client = AsyncQdrantClient(
-            location=qdrant_url, api_key=qdrant_api_key, path=qdrant_local_path
-        )
+
+        # Support URL with path prefix (e.g., https://host.com/qdrant)
+        client_kwargs = {"api_key": qdrant_api_key, "path": qdrant_local_path}
+        if qdrant_url and not qdrant_local_path:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(qdrant_url.rstrip("/"))
+            prefix = parsed.path.lstrip("/") if parsed.path and parsed.path != "/" else None
+            if prefix:
+                base_url = f"{parsed.scheme}://{parsed.hostname}"
+                port = parsed.port or (443 if parsed.scheme == "https" else 80)
+                client_kwargs.update({"location": base_url, "port": port, "prefix": prefix})
+            else:
+                client_kwargs["location"] = qdrant_url
+        else:
+            client_kwargs["location"] = qdrant_url
+
+        self._client = AsyncQdrantClient(**client_kwargs)
         self._field_indexes = field_indexes
 
     async def get_collection_names(self) -> list[str]:
