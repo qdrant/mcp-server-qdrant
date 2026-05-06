@@ -1,6 +1,7 @@
 import logging
 import uuid
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel
 from qdrant_client import AsyncQdrantClient, models
@@ -47,8 +48,11 @@ class QdrantConnector:
         self._qdrant_api_key = qdrant_api_key
         self._default_collection_name = collection_name
         self._embedding_provider = embedding_provider
+        client_url_options = build_qdrant_client_url_options(qdrant_url)
         self._client = AsyncQdrantClient(
-            location=qdrant_url, api_key=qdrant_api_key, path=qdrant_local_path
+            **client_url_options,
+            api_key=qdrant_api_key,
+            path=qdrant_local_path,
         )
         self._field_indexes = field_indexes
 
@@ -168,3 +172,34 @@ class QdrantConnector:
                         field_name=field_name,
                         field_schema=field_type,
                     )
+
+
+def build_qdrant_client_url_options(
+    qdrant_url: str | None,
+) -> dict[str, str | int | None]:
+    """
+    Build Qdrant client URL options from QDRANT_URL.
+
+    AsyncQdrantClient accepts reverse-proxy deployments as a base URL plus a
+    separate prefix. Passing a URL with a path via `location` loses the prefix.
+    """
+    if not qdrant_url:
+        return {"location": qdrant_url}
+
+    stripped_url = qdrant_url.rstrip("/")
+    parsed_url = urlsplit(stripped_url)
+
+    if not parsed_url.scheme or not parsed_url.netloc or not parsed_url.path:
+        return {"location": stripped_url}
+
+    base_url = urlunsplit((parsed_url.scheme, parsed_url.netloc, "", "", ""))
+    prefix = f"/{parsed_url.path.strip('/')}"
+    options: dict[str, str | int | None] = {"url": base_url, "prefix": prefix}
+
+    if parsed_url.port is None:
+        if parsed_url.scheme == "https":
+            options["port"] = 443
+        elif parsed_url.scheme == "http":
+            options["port"] = 80
+
+    return options
