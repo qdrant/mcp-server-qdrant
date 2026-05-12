@@ -76,7 +76,16 @@ class OpenRouterEmbeddingProvider(EmbeddingProvider):
             raise RuntimeError(f"Error making OpenRouter embedding request: {str(e)}")
 
     def get_vector_name(self) -> str:
-        """Return the name of the vector for the Qdrant collection."""
+        """Return the name of the vector for the Qdrant collection.
+
+        Honors ``QDRANT_VECTOR_NAME`` so the server can target collections
+        whose vectors use a different field name than the model-derived
+        default (e.g. ones populated by an external indexer such as cocoindex,
+        which writes under the field ``embedding``).
+        """
+        override = os.getenv("QDRANT_VECTOR_NAME")
+        if override:
+            return override
         model_name = self.model_name.replace("/", "-").replace(":", "-")
         return f"openrouter-{model_name}"
 
