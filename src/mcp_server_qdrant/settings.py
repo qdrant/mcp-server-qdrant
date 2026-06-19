@@ -47,6 +47,26 @@ class EmbeddingProviderSettings(BaseSettings):
         validation_alias="EMBEDDING_MODEL",
     )
 
+    # ── OpenAI-compatible provider settings ───────────────────────────────
+    # Used when EMBEDDING_PROVIDER=openai.
+    # api_key:   reads OPENAI_API_KEY; set to your OpenRouter / Azure / etc. key.
+    # base_url:  override to point at OpenRouter, Azure, or any compatible endpoint.
+    # vector_size: if omitted, the provider probes the API once at startup to
+    #              discover the actual dimension. Set it explicitly to skip that
+    #              probe and save one API call (e.g. OPENAI_VECTOR_SIZE=1024).
+    api_key: str | None = Field(
+        default=None,
+        validation_alias="OPENAI_API_KEY",
+    )
+    base_url: str = Field(
+        default="https://api.openai.com/v1",
+        validation_alias="OPENAI_BASE_URL",
+    )
+    vector_size: int | None = Field(
+        default=None,
+        validation_alias="OPENAI_VECTOR_SIZE",
+    )
+
 
 class FilterableField(BaseModel):
     name: str = Field(description="The name of the field payload field to filter on")
