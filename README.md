@@ -47,28 +47,72 @@ Configuration is done via environment variables. The only command-line argument 
 | `QDRANT_API_KEY`         | API key for the Qdrant server                                       | None                                                              |
 | `COLLECTION_NAME`        | Name of the default collection to use.                              | None                                                              |
 | `QDRANT_LOCAL_PATH`      | Path to the local Qdrant database (alternative to `QDRANT_URL`)     | None                                                              |
-| `EMBEDDING_PROVIDER`     | Embedding provider to use (currently only "fastembed" is supported) | `fastembed`                                                       |
+| `EMBEDDING_PROVIDER`     | Embedding provider to use (`fastembed` or `openai`)                 | `fastembed`                                                       |
 | `EMBEDDING_MODEL`        | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
 | `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `QDRANT_SEARCH_LIMIT`    | Maximum number of results to return from search                     | `10`                                                              |
 | `QDRANT_READ_ONLY`       | Enable read-only mode (disables `qdrant-store` tool)                | `false`                                                           |
 
+### OpenAI-compatible embedding providers
+
+When `EMBEDDING_PROVIDER=openai`, the server uses any OpenAI-compatible embeddings endpoint instead of
+[FastEmbed](https://qdrant.github.io/fastembed/). This works with OpenAI directly, or any compatible provider such as
+[OpenRouter](https://openrouter.ai/), Azure OpenAI, Together AI, and others.
+
+| Name                 | Description                                                                                                                          | Default Value               |
+|----------------------|--------------------------------------------------------------------------------------------------------------------------------------|-----------------------------|
+| `OPENAI_API_KEY`     | API key for the OpenAI-compatible embedding service                                                                                  | None                        |
+| `OPENAI_BASE_URL`    | Base URL of the OpenAI-compatible endpoint                                                                                           | `https://api.openai.com/v1` |
+| `OPENAI_VECTOR_SIZE` | Dimensionality of the embedding vectors. When omitted, the server probes the API once at startup to discover the size automatically. | None (auto-detected)        |
+
+#### Example: OpenAI
+
+```shell
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+EMBEDDING_PROVIDER="openai" \
+OPENAI_API_KEY="sk-..." \
+EMBEDDING_MODEL="text-embedding-3-small" \
+OPENAI_VECTOR_SIZE=1536 \
+uvx mcp-server-qdrant
+```
+
+#### Example: OpenRouter
+
+[OpenRouter](https://openrouter.ai/) provides access to a wide range of embedding models through a single
+OpenAI-compatible API, including multilingual models well-suited for non-English content.
+
+```shell
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+EMBEDDING_PROVIDER="openai" \
+OPENAI_API_KEY="sk-or-v1-..." \
+OPENAI_BASE_URL="https://openrouter.ai/api/v1" \
+EMBEDDING_MODEL="qwen/qwen3-embedding-0.6b" \
+OPENAI_VECTOR_SIZE=1024 \
+uvx mcp-server-qdrant
+```
+
+> [!TIP]
+> Set `OPENAI_VECTOR_SIZE` explicitly to match your Qdrant collection dimensions and skip the startup probe request.
+> If omitted, the server will make one test embedding call at startup to determine the vector size automatically.
+
 ### FastMCP Environment Variables
 
 Since `mcp-server-qdrant` is based on FastMCP, it also supports all the FastMCP environment variables. The most
 important ones are listed below:
 
-| Environment Variable                       | Description                                                     | Default Value |
-|--------------------------------------------|-----------------------------------------------------------------|---------------|
-| `FASTMCP_LOG_LEVEL`                        | Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)       | `INFO`        |
-| `FASTMCP_SERVER_DEBUG`                     | Enable debug mode                                               | `false`       |
-| `FASTMCP_SERVER_HOST`                      | Host address to bind the server to                              | `127.0.0.1`   |
-| `FASTMCP_SERVER_PORT`                      | Port to run the server on                                       | `8000`        |
-| `FASTMCP_SERVER_ON_DUPLICATE_RESOURCES`    | Behavior for duplicate resources (warn, error, replace, ignore) | `warn`        |
-| `FASTMCP_SERVER_ON_DUPLICATE_TOOLS`        | Behavior for duplicate tools (warn, error, replace, ignore)     | `warn`        |
-| `FASTMCP_SERVER_ON_DUPLICATE_PROMPTS`      | Behavior for duplicate prompts (warn, error, replace, ignore)   | `warn`        |
-| `FASTMCP_SERVER_DEPENDENCIES`              | List of dependencies to install in the server environment       | `[]`          |
+| Environment Variable                    | Description                                                     | Default Value |
+|-----------------------------------------|-----------------------------------------------------------------|---------------|
+| `FASTMCP_LOG_LEVEL`                     | Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)       | `INFO`        |
+| `FASTMCP_SERVER_DEBUG`                  | Enable debug mode                                               | `false`       |
+| `FASTMCP_SERVER_HOST`                   | Host address to bind the server to                              | `127.0.0.1`   |
+| `FASTMCP_SERVER_PORT`                   | Port to run the server on                                       | `8000`        |
+| `FASTMCP_SERVER_ON_DUPLICATE_RESOURCES` | Behavior for duplicate resources (warn, error, replace, ignore) | `warn`        |
+| `FASTMCP_SERVER_ON_DUPLICATE_TOOLS`     | Behavior for duplicate tools (warn, error, replace, ignore)     | `warn`        |
+| `FASTMCP_SERVER_ON_DUPLICATE_PROMPTS`   | Behavior for duplicate prompts (warn, error, replace, ignore)   | `warn`        |
+| `FASTMCP_SERVER_DEPENDENCIES`           | List of dependencies to install in the server environment       | `[]`          |
 
 > [!NOTE]
 > Server-specific settings use the `FASTMCP_SERVER_` prefix. This may change in future versions.
@@ -181,8 +225,9 @@ For local Qdrant mode:
 
 This MCP server will automatically create a collection with the specified name if it doesn't exist.
 
-By default, the server will use the `sentence-transformers/all-MiniLM-L6-v2` embedding model to encode memories.
-For the time being, only [FastEmbed](https://qdrant.github.io/fastembed/) models are supported.
+By default, the server will use the `sentence-transformers/all-MiniLM-L6-v2` embedding model via
+[FastEmbed](https://qdrant.github.io/fastembed/). To use OpenAI or any OpenAI-compatible provider instead, set
+`EMBEDDING_PROVIDER=openai` and the relevant `OPENAI_*` variables described above.
 
 ## Support for other tools
 
@@ -207,7 +252,7 @@ TOOL_FIND_DESCRIPTION="Search for relevant code snippets based on natural langua
 The 'query' parameter should describe what you're looking for, \
 and the tool will return the most relevant code snippets. \
 Use this when you need to find existing code snippets for reuse or reference." \
-uvx mcp-server-qdrant --transport sse # Enable SSE transport
+uvx mcp-server-qdrant --transport sse
 ```
 
 In Cursor/Windsurf, you can then configure the MCP server in your settings by pointing to this running server using
@@ -253,7 +298,6 @@ existing codebase.
 1. Add the MCP server to Claude Code:
 
     ```shell
-    # Add mcp-server-qdrant configured for code search
     claude mcp add code-search \
     -e QDRANT_URL="http://localhost:6333" \
     -e COLLECTION_NAME="code-repository" \
@@ -303,22 +347,9 @@ Add the following JSON block to your User Settings (JSON) file in VS Code. You c
 {
   "mcp": {
     "inputs": [
-      {
-        "type": "promptString",
-        "id": "qdrantUrl",
-        "description": "Qdrant URL"
-      },
-      {
-        "type": "promptString",
-        "id": "qdrantApiKey",
-        "description": "Qdrant API Key",
-        "password": true
-      },
-      {
-        "type": "promptString",
-        "id": "collectionName",
-        "description": "Collection Name"
-      }
+      {"type": "promptString", "id": "qdrantUrl", "description": "Qdrant URL"},
+      {"type": "promptString", "id": "qdrantApiKey", "description": "Qdrant API Key", "password": true},
+      {"type": "promptString", "id": "collectionName", "description": "Collection Name"}
     ],
     "servers": {
       "qdrant": {
@@ -335,124 +366,19 @@ Add the following JSON block to your User Settings (JSON) file in VS Code. You c
 }
 ```
 
-Or if you prefer using Docker, add this configuration instead:
-
-```json
-{
-  "mcp": {
-    "inputs": [
-      {
-        "type": "promptString",
-        "id": "qdrantUrl",
-        "description": "Qdrant URL"
-      },
-      {
-        "type": "promptString",
-        "id": "qdrantApiKey",
-        "description": "Qdrant API Key",
-        "password": true
-      },
-      {
-        "type": "promptString",
-        "id": "collectionName",
-        "description": "Collection Name"
-      }
-    ],
-    "servers": {
-      "qdrant": {
-        "command": "docker",
-        "args": [
-          "run",
-          "-p", "8000:8000",
-          "-i",
-          "--rm",
-          "-e", "QDRANT_URL",
-          "-e", "QDRANT_API_KEY",
-          "-e", "COLLECTION_NAME",
-          "mcp-server-qdrant"
-        ],
-        "env": {
-          "QDRANT_URL": "${input:qdrantUrl}",
-          "QDRANT_API_KEY": "${input:qdrantApiKey}",
-          "COLLECTION_NAME": "${input:collectionName}"
-        }
-      }
-    }
-  }
-}
-```
-
-Alternatively, you can create a `.vscode/mcp.json` file in your workspace with the following content:
+Alternatively, you can create a `.vscode/mcp.json` file in your workspace:
 
 ```json
 {
   "inputs": [
-    {
-      "type": "promptString",
-      "id": "qdrantUrl",
-      "description": "Qdrant URL"
-    },
-    {
-      "type": "promptString",
-      "id": "qdrantApiKey",
-      "description": "Qdrant API Key",
-      "password": true
-    },
-    {
-      "type": "promptString",
-      "id": "collectionName",
-      "description": "Collection Name"
-    }
+    {"type": "promptString", "id": "qdrantUrl", "description": "Qdrant URL"},
+    {"type": "promptString", "id": "qdrantApiKey", "description": "Qdrant API Key", "password": true},
+    {"type": "promptString", "id": "collectionName", "description": "Collection Name"}
   ],
   "servers": {
     "qdrant": {
       "command": "uvx",
       "args": ["mcp-server-qdrant"],
-      "env": {
-        "QDRANT_URL": "${input:qdrantUrl}",
-        "QDRANT_API_KEY": "${input:qdrantApiKey}",
-        "COLLECTION_NAME": "${input:collectionName}"
-      }
-    }
-  }
-}
-```
-
-For workspace configuration with Docker, use this in `.vscode/mcp.json`:
-
-```json
-{
-  "inputs": [
-    {
-      "type": "promptString",
-      "id": "qdrantUrl",
-      "description": "Qdrant URL"
-    },
-    {
-      "type": "promptString",
-      "id": "qdrantApiKey",
-      "description": "Qdrant API Key",
-      "password": true
-    },
-    {
-      "type": "promptString",
-      "id": "collectionName",
-      "description": "Collection Name"
-    }
-  ],
-  "servers": {
-    "qdrant": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-p", "8000:8000",
-        "-i",
-        "--rm",
-        "-e", "QDRANT_URL",
-        "-e", "QDRANT_API_KEY",
-        "-e", "COLLECTION_NAME",
-        "mcp-server-qdrant"
-      ],
       "env": {
         "QDRANT_URL": "${input:qdrantUrl}",
         "QDRANT_API_KEY": "${input:qdrantApiKey}",
