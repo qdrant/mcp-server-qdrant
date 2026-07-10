@@ -184,6 +184,16 @@ This MCP server will automatically create a collection with the specified name i
 By default, the server will use the `sentence-transformers/all-MiniLM-L6-v2` embedding model to encode memories.
 For the time being, only [FastEmbed](https://qdrant.github.io/fastembed/) models are supported.
 
+### Using with Autohand Code
+
+Register the published server with [Autohand Code](https://github.com/autohandai/code-cli/) and provide the same Qdrant settings through `env`:
+
+```shell
+autohand mcp add qdrant env QDRANT_URL=https://xyz-example.eu-central.aws.cloud.qdrant.io:6333 QDRANT_API_KEY=your_api_key COLLECTION_NAME=your-collection-name EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2 uvx mcp-server-qdrant
+```
+
+Add `--scope project` after `mcp add` to keep the registration in the current workspace.
+
 ## Support for other tools
 
 This MCP server can be used with any MCP-compatible client. For example, you can use it with
