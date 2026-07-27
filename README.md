@@ -1,5 +1,7 @@
 # mcp-server-qdrant: A Qdrant MCP server
 
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fqdrant%2Fmcp-server-qdrant.svg)](https://mcptoplist.com/server/glama%2Fqdrant%2Fmcp-server-qdrant)
+
 [![smithery badge](https://smithery.ai/badge/mcp-server-qdrant)](https://smithery.ai/protocol/mcp-server-qdrant)
 
 > The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables
