@@ -42,6 +42,7 @@ class QdrantConnector:
         embedding_provider: EmbeddingProvider,
         qdrant_local_path: str | None = None,
         field_indexes: dict[str, models.PayloadSchemaType] | None = None,
+        allow_collections: set[str] | None = None,
     ):
         self._qdrant_url = qdrant_url.rstrip("/") if qdrant_url else None
         self._qdrant_api_key = qdrant_api_key
@@ -51,6 +52,23 @@ class QdrantConnector:
             location=qdrant_url, api_key=qdrant_api_key, path=qdrant_local_path
         )
         self._field_indexes = field_indexes
+        self._allow_collections = allow_collections
+
+    def _check_collection_allowed(self, collection_name: str | None) -> None:
+        """Reject access to any collection outside the configured allowlist.
+
+        When no allowlist is configured, all collections are permitted, so
+        existing deployments are unaffected.
+        """
+        if (
+            self._allow_collections is not None
+            and collection_name is not None
+            and collection_name not in self._allow_collections
+        ):
+            raise ValueError(
+                f"Access to collection '{collection_name}' is not allowed. "
+                f"Allowed collections: {sorted(self._allow_collections)}."
+            )
 
     async def get_collection_names(self) -> list[str]:
         """
@@ -69,6 +87,7 @@ class QdrantConnector:
         """
         collection_name = collection_name or self._default_collection_name
         assert collection_name is not None
+        self._check_collection_allowed(collection_name)
         await self._ensure_collection_exists(collection_name)
 
         # Embed the document
@@ -109,6 +128,7 @@ class QdrantConnector:
         :return: A list of entries found.
         """
         collection_name = collection_name or self._default_collection_name
+        self._check_collection_allowed(collection_name)
         collection_exists = await self._client.collection_exists(collection_name)
         if not collection_exists:
             return []

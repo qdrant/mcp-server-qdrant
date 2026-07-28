@@ -90,6 +90,9 @@ class QdrantSettings(BaseSettings):
     allow_arbitrary_filter: bool = Field(
         default=False, validation_alias="QDRANT_ALLOW_ARBITRARY_FILTER"
     )
+    allow_collections: str | None = Field(
+        default=None, validation_alias="QDRANT_ALLOW_COLLECTIONS"
+    )
 
     def filterable_fields_dict(self) -> dict[str, FilterableField]:
         if self.filterable_fields is None:
@@ -104,6 +107,15 @@ class QdrantSettings(BaseSettings):
             for field in self.filterable_fields
             if field.condition is not None
         }
+
+    def allowed_collections(self) -> set[str] | None:
+        """Parse QDRANT_ALLOW_COLLECTIONS (comma-separated) into an allowlist set.
+
+        Returns None when unset, which means no restriction (backwards compatible).
+        """
+        if not self.allow_collections:
+            return None
+        return {c.strip() for c in self.allow_collections.split(",") if c.strip()}
 
     @model_validator(mode="after")
     def check_local_path_conflict(self) -> "QdrantSettings":

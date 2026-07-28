@@ -53,6 +53,7 @@ Configuration is done via environment variables. The only command-line argument 
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `QDRANT_SEARCH_LIMIT`    | Maximum number of results to return from search                     | `10`                                                              |
 | `QDRANT_READ_ONLY`       | Enable read-only mode (disables `qdrant-store` tool)                | `false`                                                           |
+| `QDRANT_ALLOW_COLLECTIONS`| Comma-separated allowlist of collections the tools may access. Unset means all collections are allowed. | `None` |
 
 ### FastMCP Environment Variables
 
