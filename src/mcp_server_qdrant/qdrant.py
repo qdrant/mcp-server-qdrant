@@ -1,6 +1,7 @@
 import logging
 import uuid
 from typing import Any
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel
 from qdrant_client import AsyncQdrantClient, models
@@ -12,6 +13,28 @@ logger = logging.getLogger(__name__)
 
 Metadata = dict[str, Any]
 ArbitraryFilter = dict[str, Any]
+
+
+def qdrant_client_options(qdrant_url: str | None) -> dict[str, str]:
+    """Return Qdrant client options while preserving reverse-proxy prefixes."""
+    if not qdrant_url:
+        return {}
+
+    if qdrant_url == ":memory:":
+        return {"location": qdrant_url}
+
+    parsed = urlsplit(qdrant_url)
+    prefix = parsed.path.rstrip("/")
+    if not prefix:
+        return {"location": qdrant_url}
+
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError("QDRANT_URL with a path prefix must include a scheme and host")
+
+    return {
+        "url": f"{parsed.scheme}://{parsed.netloc}",
+        "prefix": prefix,
+    }
 
 
 class Entry(BaseModel):
@@ -47,9 +70,20 @@ class QdrantConnector:
         self._qdrant_api_key = qdrant_api_key
         self._default_collection_name = collection_name
         self._embedding_provider = embedding_provider
-        self._client = AsyncQdrantClient(
-            location=qdrant_url, api_key=qdrant_api_key, path=qdrant_local_path
-        )
+        client_options = qdrant_client_options(qdrant_url)
+        if "url" in client_options:
+            self._client = AsyncQdrantClient(
+                url=client_options["url"],
+                prefix=client_options["prefix"],
+                api_key=qdrant_api_key,
+                path=qdrant_local_path,
+            )
+        else:
+            self._client = AsyncQdrantClient(
+                location=client_options.get("location"),
+                api_key=qdrant_api_key,
+                path=qdrant_local_path,
+            )
         self._field_indexes = field_indexes
 
     async def get_collection_names(self) -> list[str]:
