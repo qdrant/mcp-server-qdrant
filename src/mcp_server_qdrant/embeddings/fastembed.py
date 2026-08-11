@@ -10,11 +10,13 @@ class FastEmbedProvider(EmbeddingProvider):
     """
     FastEmbed implementation of the embedding provider.
     :param model_name: The name of the FastEmbed model to use.
+
+    All other named parameters get passed to `fastembed.TextEmbedding`.
     """
 
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, **kwargs):
         self.model_name = model_name
-        self.embedding_model = TextEmbedding(model_name)
+        self.embedding_model = TextEmbedding(model_name, **kwargs)
 
     async def embed_documents(self, documents: list[str]) -> list[list[float]]:
         """Embed a list of documents into vectors."""
