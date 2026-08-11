@@ -3,6 +3,7 @@ import logging
 from typing import Annotated, Any, Optional
 
 from fastmcp import Context, FastMCP
+from fastmcp.exceptions import ToolError
 from pydantic import Field
 from qdrant_client import models
 
@@ -19,6 +20,22 @@ from mcp_server_qdrant.settings import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def describe_exception(exc: Exception) -> str:
+    """
+    Build a human readable description of an exception.
+
+    Some exceptions, such as a bare ``AssertionError`` or errors raised without a
+    message, have an empty string representation. When those propagate to the MCP
+    client they show up as an empty error (see issue #151). Falling back to the
+    exception class name guarantees the client always receives a non-empty,
+    actionable message.
+    """
+    message = str(exc).strip()
+    if message:
+        return f"{type(exc).__name__}: {message}"
+    return type(exc).__name__
 
 
 # FastMCP is an alternative interface for declaring the capabilities
@@ -119,7 +136,15 @@ class QdrantMCPServer(FastMCP):
 
             entry = Entry(content=information, metadata=metadata)
 
-            await self.qdrant_connector.store(entry, collection_name=collection_name)
+            try:
+                await self.qdrant_connector.store(
+                    entry, collection_name=collection_name
+                )
+            except Exception as exc:
+                await ctx.debug(f"qdrant-store failed: {exc!r}")
+                raise ToolError(
+                    f"qdrant-store failed: {describe_exception(exc)}"
+                ) from exc
             if collection_name:
                 return f"Remembered: {information} in collection {collection_name}"
             return f"Remembered: {information}"
@@ -149,12 +174,18 @@ class QdrantMCPServer(FastMCP):
 
             await ctx.debug(f"Finding results for query {query}")
 
-            entries = await self.qdrant_connector.search(
-                query,
-                collection_name=collection_name,
-                limit=self.qdrant_settings.search_limit,
-                query_filter=query_filter,
-            )
+            try:
+                entries = await self.qdrant_connector.search(
+                    query,
+                    collection_name=collection_name,
+                    limit=self.qdrant_settings.search_limit,
+                    query_filter=query_filter,
+                )
+            except Exception as exc:
+                await ctx.debug(f"qdrant-find failed: {exc!r}")
+                raise ToolError(
+                    f"qdrant-find failed: {describe_exception(exc)}"
+                ) from exc
             if not entries:
                 return None
             content = [
