@@ -164,8 +164,61 @@ class QdrantMCPServer(FastMCP):
                 content.append(self.format_entry(entry))
             return content
 
+        async def edit(
+            ctx: Context,
+            query: Annotated[
+                str,
+                Field(
+                    description="Semantic search query used to find the existing memory to update"
+                ),
+            ],
+            information: Annotated[str, Field(description="Replacement text to store")],
+            collection_name: Annotated[
+                str, Field(description="The collection to edit the information in")
+            ],
+            metadata: Annotated[
+                Metadata | None,
+                Field(
+                    description=(
+                        "Replacement metadata for the memory. If omitted, the existing metadata is preserved."
+                    )
+                ),
+            ] = None,
+            query_filter: ArbitraryFilter | None = None,
+        ) -> str:
+            """
+            Edit a memory in Qdrant by replacing the closest semantic match.
+            :param ctx: The context for the request.
+            :param query: The query to use for finding the memory to edit.
+            :param information: The replacement information to store.
+            :param collection_name: The name of the collection to edit in, optional. If not provided,
+                                    the default collection is used.
+            :param metadata: JSON metadata to store with the replacement information, optional.
+                             If omitted, the existing metadata is preserved.
+            :param query_filter: The filter to apply to the query.
+            :return: A message indicating the outcome of the update.
+            """
+            await ctx.debug(f"Query filter: {query_filter}")
+
+            query_filter = models.Filter(**query_filter) if query_filter else None
+
+            await ctx.debug(f"Editing memory matching '{query}'")
+
+            updated_entry = await self.qdrant_connector.edit(
+                query,
+                Entry(content=information, metadata=metadata),
+                collection_name=collection_name,
+                query_filter=query_filter,
+            )
+            if not updated_entry:
+                return f"No matching memory found for: {query}"
+            if collection_name:
+                return f"Updated memory matching '{query}' in collection {collection_name}"
+            return f"Updated memory matching '{query}'"
+
         find_foo = find
         store_foo = store
+        edit_foo = edit
 
         filterable_conditions = (
             self.qdrant_settings.filterable_fields_dict_with_conditions()
@@ -173,8 +226,10 @@ class QdrantMCPServer(FastMCP):
 
         if len(filterable_conditions) > 0:
             find_foo = wrap_filters(find_foo, filterable_conditions)
+            edit_foo = wrap_filters(edit_foo, filterable_conditions)
         elif not self.qdrant_settings.allow_arbitrary_filter:
             find_foo = make_partial_function(find_foo, {"query_filter": None})
+            edit_foo = make_partial_function(edit_foo, {"query_filter": None})
 
         if self.qdrant_settings.collection_name:
             find_foo = make_partial_function(
@@ -182,6 +237,9 @@ class QdrantMCPServer(FastMCP):
             )
             store_foo = make_partial_function(
                 store_foo, {"collection_name": self.qdrant_settings.collection_name}
+            )
+            edit_foo = make_partial_function(
+                edit_foo, {"collection_name": self.qdrant_settings.collection_name}
             )
 
         self.tool(
@@ -196,4 +254,9 @@ class QdrantMCPServer(FastMCP):
                 store_foo,
                 name="qdrant-store",
                 description=self.tool_settings.tool_store_description,
+            )
+            self.tool(
+                edit_foo,
+                name="qdrant-edit",
+                description=self.tool_settings.tool_edit_description,
             )

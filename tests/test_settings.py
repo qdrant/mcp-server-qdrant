@@ -2,6 +2,7 @@ import pytest
 
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
 from mcp_server_qdrant.settings import (
+    DEFAULT_TOOL_EDIT_DESCRIPTION,
     DEFAULT_TOOL_FIND_DESCRIPTION,
     DEFAULT_TOOL_STORE_DESCRIPTION,
     EmbeddingProviderSettings,
@@ -84,6 +85,7 @@ class TestToolSettings:
         """Test that default values are set correctly when no env vars are provided."""
         settings = ToolSettings()
         assert settings.tool_store_description == DEFAULT_TOOL_STORE_DESCRIPTION
+        assert settings.tool_edit_description == DEFAULT_TOOL_EDIT_DESCRIPTION
         assert settings.tool_find_description == DEFAULT_TOOL_FIND_DESCRIPTION
 
     def test_custom_store_description(self, monkeypatch):
@@ -91,6 +93,15 @@ class TestToolSettings:
         monkeypatch.setenv("TOOL_STORE_DESCRIPTION", "Custom store description")
         settings = ToolSettings()
         assert settings.tool_store_description == "Custom store description"
+        assert settings.tool_edit_description == DEFAULT_TOOL_EDIT_DESCRIPTION
+        assert settings.tool_find_description == DEFAULT_TOOL_FIND_DESCRIPTION
+
+    def test_custom_edit_description(self, monkeypatch):
+        """Test loading custom edit description from environment variable."""
+        monkeypatch.setenv("TOOL_EDIT_DESCRIPTION", "Custom edit description")
+        settings = ToolSettings()
+        assert settings.tool_store_description == DEFAULT_TOOL_STORE_DESCRIPTION
+        assert settings.tool_edit_description == "Custom edit description"
         assert settings.tool_find_description == DEFAULT_TOOL_FIND_DESCRIPTION
 
     def test_custom_find_description(self, monkeypatch):
@@ -98,12 +109,15 @@ class TestToolSettings:
         monkeypatch.setenv("TOOL_FIND_DESCRIPTION", "Custom find description")
         settings = ToolSettings()
         assert settings.tool_store_description == DEFAULT_TOOL_STORE_DESCRIPTION
+        assert settings.tool_edit_description == DEFAULT_TOOL_EDIT_DESCRIPTION
         assert settings.tool_find_description == "Custom find description"
 
     def test_all_custom_values(self, monkeypatch):
         """Test loading all custom values from environment variables."""
         monkeypatch.setenv("TOOL_STORE_DESCRIPTION", "Custom store description")
+        monkeypatch.setenv("TOOL_EDIT_DESCRIPTION", "Custom edit description")
         monkeypatch.setenv("TOOL_FIND_DESCRIPTION", "Custom find description")
         settings = ToolSettings()
         assert settings.tool_store_description == "Custom store description"
+        assert settings.tool_edit_description == "Custom edit description"
         assert settings.tool_find_description == "Custom find description"
