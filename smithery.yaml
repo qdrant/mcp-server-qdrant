@@ -1,0 +1,38 @@
+# Smithery configuration file
+# https://smithery.ai/docs/build/project-config/smithery.yaml
+build:
+  dockerBuildPath: .
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP server.
+    type: object
+    required:
+      - qdrantUrl
+    properties:
+      qdrantUrl:
+        type: string
+        description: URL of the Qdrant server (e.g. https://xyz.cloud.qdrant.io:6333).
+      qdrantApiKey:
+        type: string
+        description: API key for the Qdrant server.
+      collectionName:
+        type: string
+        description: Name of the default collection to use.
+      embeddingModel:
+        type: string
+        default: sentence-transformers/all-MiniLM-L6-v2
+        description: FastEmbed model to use for embeddings.
+  commandFunction:
+    # Produces the CLI command that starts the MCP server on stdio.
+    |-
+    (config) => ({
+      command: 'mcp-server-qdrant',
+      args: ['--transport', 'stdio'],
+      env: {
+        QDRANT_URL: config.qdrantUrl,
+        QDRANT_API_KEY: config.qdrantApiKey || '',
+        COLLECTION_NAME: config.collectionName || '',
+        EMBEDDING_MODEL: config.embeddingModel || 'sentence-transformers/all-MiniLM-L6-v2'
+      }
+    })
