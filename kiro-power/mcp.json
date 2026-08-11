@@ -9,7 +9,7 @@
         "QDRANT_URL": "${QDRANT_URL}",
         "QDRANT_API_KEY": "${QDRANT_API_KEY}",
         "COLLECTION_NAME": "${COLLECTION_NAME}",
-        "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2"
+        "EMBEDDING_MODEL": "${EMBEDDING_MODEL}"
       }
     }
   }
