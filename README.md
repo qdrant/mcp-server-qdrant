@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/qdrant-mcp-server-qdrant-badge.png)](https://mseep.ai/app/qdrant-mcp-server-qdrant)
+
 # mcp-server-qdrant: A Qdrant MCP server
 
 [![smithery badge](https://smithery.ai/badge/mcp-server-qdrant)](https://smithery.ai/protocol/mcp-server-qdrant)
