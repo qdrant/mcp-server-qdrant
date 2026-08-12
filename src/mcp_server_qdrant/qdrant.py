@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel
 from qdrant_client import AsyncQdrantClient, models
+from qdrant_client.http.exceptions import UnexpectedResponse
 
 from mcp_server_qdrant.embeddings.base import EmbeddingProvider
 from mcp_server_qdrant.settings import METADATA_PATH
@@ -140,15 +141,22 @@ class QdrantConnector:
     async def _ensure_collection_exists(self, collection_name: str):
         """
         Ensure that the collection exists, creating it if necessary.
+
+        Safe against concurrent callers: the check-then-create window is not
+        atomic against the server, so two callers can both see the collection
+        as missing and both attempt to create it. The loser gets a "collection
+        already exists" error, which we swallow after confirming the collection
+        is now present.
+
         :param collection_name: The name of the collection to ensure exists.
         """
-        collection_exists = await self._client.collection_exists(collection_name)
-        if not collection_exists:
-            # Create the collection with the appropriate vector size
-            vector_size = self._embedding_provider.get_vector_size()
+        if await self._client.collection_exists(collection_name):
+            return
 
-            # Use the vector name as defined in the embedding provider
-            vector_name = self._embedding_provider.get_vector_name()
+        vector_size = self._embedding_provider.get_vector_size()
+        vector_name = self._embedding_provider.get_vector_name()
+
+        try:
             await self._client.create_collection(
                 collection_name=collection_name,
                 vectors_config={
@@ -158,13 +166,28 @@ class QdrantConnector:
                     )
                 },
             )
+        except ValueError as e:
+            # Local mode raises ValueError("Collection ... already exists")
+            # when another caller wins the race between us. Treat as success.
+            if "already exists" not in str(e).lower():
+                raise
+        except UnexpectedResponse as e:
+            # Remote mode: server returns 409 Conflict on duplicate create.
+            if e.status_code != 409:
+                raise
 
-            # Create payload indexes if configured
-
-            if self._field_indexes:
-                for field_name, field_type in self._field_indexes.items():
+        if self._field_indexes:
+            for field_name, field_type in self._field_indexes.items():
+                try:
                     await self._client.create_payload_index(
                         collection_name=collection_name,
                         field_name=field_name,
                         field_schema=field_type,
+                    )
+                except (ValueError, UnexpectedResponse):
+                    # Payload index already exists (races or repeated calls).
+                    logger.debug(
+                        "payload index %r on %r already present, skipping",
+                        field_name,
+                        collection_name,
                     )
