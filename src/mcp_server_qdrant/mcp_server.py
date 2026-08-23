@@ -1,5 +1,6 @@
 import json
 import logging
+from html import escape
 from typing import Annotated, Any, Optional
 
 from fastmcp import Context, FastMCP
@@ -83,7 +84,12 @@ class QdrantMCPServer(FastMCP):
         Feel free to override this method in your subclass to customize the format of the entry.
         """
         entry_metadata = json.dumps(entry.metadata) if entry.metadata else ""
-        return f"<entry><content>{entry.content}</content><metadata>{entry_metadata}</metadata></entry>"
+        return (
+            "<entry>"
+            f"<content>{escape(entry.content, quote=False)}</content>"
+            f"<metadata>{escape(entry_metadata, quote=False)}</metadata>"
+            "</entry>"
+        )
 
     def setup_tools(self):
         """
