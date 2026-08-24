@@ -46,6 +46,10 @@ class EmbeddingProviderSettings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
     )
+    gemini_api_key: str = Field(
+        default="",
+        validation_alias="GEMINI_API_KEY",
+    )
 
 
 class FilterableField(BaseModel):

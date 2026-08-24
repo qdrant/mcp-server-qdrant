@@ -10,6 +10,16 @@ dependencies = [
     "qdrant-client>=1.12.0",
     "pydantic>=2.10.6,<2.12.0",
     "fastmcp==2.7.0",
+    "google-genai==1.65.0",
+]
+
+[tool.hatch.envs.hatch-test]
+extra-dependencies = [
+    "pytest-asyncio",
+    "pytest-mock",
+    "pytest-xdist",
+    "pytest-rerunfailures",
+    "numpy",
 ]
 
 [build-system]
