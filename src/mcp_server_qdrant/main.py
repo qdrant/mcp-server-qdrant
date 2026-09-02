@@ -1,4 +1,5 @@
 import argparse
+import os
 
 
 def main():
@@ -21,4 +22,18 @@ def main():
     # only after we make the changes.
     from mcp_server_qdrant.server import mcp
 
-    mcp.run(transport=args.transport)
+    run_kwargs = {}
+    if args.transport != "stdio":
+        # Bearer-token auth only makes sense for the HTTP-based transports.
+        # If MCP_API_KEY isn't set, the server stays open (no auth check).
+        api_key = os.environ.get("MCP_API_KEY")
+        if api_key:
+            from starlette.middleware import Middleware
+
+            from mcp_server_qdrant.auth import BearerAuthMiddleware
+
+            run_kwargs["middleware"] = [
+                Middleware(BearerAuthMiddleware, api_key=api_key)
+            ]
+
+    mcp.run(transport=args.transport, **run_kwargs)
