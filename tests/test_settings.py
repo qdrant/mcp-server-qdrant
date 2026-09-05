@@ -78,6 +78,39 @@ class TestEmbeddingProviderSettings:
         assert settings.provider_type == EmbeddingProviderType.FASTEMBED
         assert settings.model_name == "custom_model"
 
+    def test_openai_provider_values(self, monkeypatch):
+        """Test loading the OpenAI-compatible provider configuration."""
+        monkeypatch.setenv("EMBEDDING_PROVIDER", "openai")
+        monkeypatch.setenv("EMBEDDING_MODEL", "text-embedding-3-small")
+        monkeypatch.setenv("EMBEDDING_BASE_URL", "http://localhost:11434/v1")
+        monkeypatch.setenv("EMBEDDING_API_KEY", "test_api_key")
+        monkeypatch.setenv("EMBEDDING_VECTOR_SIZE", "1536")
+        monkeypatch.setenv("EMBEDDING_VECTOR_NAME", "custom_vector")
+        monkeypatch.setenv("EMBEDDING_QUERY_PREFIX", "Query: ")
+        monkeypatch.setenv("EMBEDDING_DOCUMENT_PREFIX", "Passage: ")
+
+        settings = EmbeddingProviderSettings()
+
+        assert settings.provider_type == EmbeddingProviderType.OPENAI
+        assert settings.model_name == "text-embedding-3-small"
+        assert settings.base_url == "http://localhost:11434/v1"
+        assert settings.api_key == "test_api_key"
+        assert settings.vector_size == 1536
+        assert settings.vector_name == "custom_vector"
+        assert settings.query_prefix == "Query: "
+        assert settings.document_prefix == "Passage: "
+
+    def test_openai_settings_are_optional(self, monkeypatch):
+        """The OpenAI-specific settings must not affect the default provider."""
+        settings = EmbeddingProviderSettings()
+
+        assert settings.base_url is None
+        assert settings.api_key is None
+        assert settings.vector_size is None
+        assert settings.vector_name is None
+        assert settings.query_prefix == ""
+        assert settings.document_prefix == ""
+
 
 class TestToolSettings:
     def test_default_values(self):

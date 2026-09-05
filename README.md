@@ -47,12 +47,23 @@ Configuration is done via environment variables. The only command-line argument 
 | `QDRANT_API_KEY`         | API key for the Qdrant server                                       | None                                                              |
 | `COLLECTION_NAME`        | Name of the default collection to use.                              | None                                                              |
 | `QDRANT_LOCAL_PATH`      | Path to the local Qdrant database (alternative to `QDRANT_URL`)     | None                                                              |
-| `EMBEDDING_PROVIDER`     | Embedding provider to use (currently only "fastembed" is supported) | `fastembed`                                                       |
+| `EMBEDDING_PROVIDER`     | Embedding provider to use (`fastembed` or `openai`)                 | `fastembed`                                                       |
 | `EMBEDDING_MODEL`        | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
 | `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `QDRANT_SEARCH_LIMIT`    | Maximum number of results to return from search                     | `10`                                                              |
 | `QDRANT_READ_ONLY`       | Enable read-only mode (disables `qdrant-store` tool)                | `false`                                                           |
+
+The following variables only apply when `EMBEDDING_PROVIDER` is set to `openai`:
+
+| Name                        | Description                                                                     | Default Value                  |
+|-----------------------------|---------------------------------------------------------------------------------|--------------------------------|
+| `EMBEDDING_BASE_URL`        | Base URL of the OpenAI-compatible API, including the `/v1` suffix                | OpenAI's own API               |
+| `EMBEDDING_API_KEY`         | API key for the embeddings API. Falls back to `OPENAI_API_KEY`                   | A placeholder, for local servers that do not check it |
+| `EMBEDDING_VECTOR_SIZE`     | Dimensionality of the embeddings. Detected from the API when not set             | None                           |
+| `EMBEDDING_VECTOR_NAME`     | Name of the vector in the Qdrant collection                                      | Derived from `EMBEDDING_MODEL` |
+| `EMBEDDING_QUERY_PREFIX`    | Prefix prepended to every query before embedding it                              | Empty                          |
+| `EMBEDDING_DOCUMENT_PREFIX` | Prefix prepended to every document before embedding it                           | Empty                          |
 
 ### FastMCP Environment Variables
 
@@ -181,8 +192,24 @@ For local Qdrant mode:
 
 This MCP server will automatically create a collection with the specified name if it doesn't exist.
 
-By default, the server will use the `sentence-transformers/all-MiniLM-L6-v2` embedding model to encode memories.
-For the time being, only [FastEmbed](https://qdrant.github.io/fastembed/) models are supported.
+By default, the server will use the `sentence-transformers/all-MiniLM-L6-v2` embedding model to encode memories,
+running locally through [FastEmbed](https://qdrant.github.io/fastembed/).
+
+Alternatively, setting `EMBEDDING_PROVIDER=openai` calls out to any service exposing an OpenAI-compatible
+`/v1/embeddings` endpoint. This covers OpenAI itself as well as locally hosted servers such as
+[Ollama](https://ollama.com/), [vLLM](https://docs.vllm.ai/) or [LM Studio](https://lmstudio.ai/):
+
+```bash
+QDRANT_URL="http://localhost:6333" \
+COLLECTION_NAME="my-collection" \
+EMBEDDING_PROVIDER="openai" \
+EMBEDDING_BASE_URL="http://localhost:11434/v1" \
+EMBEDDING_MODEL="nomic-embed-text" \
+uvx mcp-server-qdrant
+```
+
+Models that distinguish queries from documents can be configured with `EMBEDDING_QUERY_PREFIX` and
+`EMBEDDING_DOCUMENT_PREFIX`.
 
 ## Support for other tools
 
