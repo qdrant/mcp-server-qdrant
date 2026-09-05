@@ -46,6 +46,18 @@ class EmbeddingProviderSettings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
     )
+    base_url: str | None = Field(default=None, validation_alias="EMBEDDING_BASE_URL")
+    api_key: str | None = Field(default=None, validation_alias="EMBEDDING_API_KEY")
+    vector_size: int | None = Field(
+        default=None, validation_alias="EMBEDDING_VECTOR_SIZE"
+    )
+    vector_name: str | None = Field(
+        default=None, validation_alias="EMBEDDING_VECTOR_NAME"
+    )
+    query_prefix: str = Field(default="", validation_alias="EMBEDDING_QUERY_PREFIX")
+    document_prefix: str = Field(
+        default="", validation_alias="EMBEDDING_DOCUMENT_PREFIX"
+    )
 
 
 class FilterableField(BaseModel):
