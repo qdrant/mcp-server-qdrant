@@ -54,6 +54,12 @@ Configuration is done via environment variables. The only command-line argument 
 | `QDRANT_SEARCH_LIMIT`    | Maximum number of results to return from search                     | `10`                                                              |
 | `QDRANT_READ_ONLY`       | Enable read-only mode (disables `qdrant-store` tool)                | `false`                                                           |
 
+> [!NOTE]
+> The table above lists the defaults that apply when you run the server directly, for example with
+> `uvx mcp-server-qdrant`. The published Docker image sets some of them in the `Dockerfile`, so a
+> container started without explicit values sees `COLLECTION_NAME=default-collection` and
+> `EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2` instead of no collection at all.
+
 ### FastMCP Environment Variables
 
 Since `mcp-server-qdrant` is based on FastMCP, it also supports all the FastMCP environment variables. The most
