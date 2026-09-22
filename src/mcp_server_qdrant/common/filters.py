@@ -167,9 +167,12 @@ def make_filter(
                 f"Unsupported field type {field.field_type} for field {field_name}"
             )
 
-    return models.Filter(
-        must=must_conditions, must_not=must_not_conditions
-    ).model_dump()
+    # `by_alias=True` is required: without it `MatchExcept` is serialised using
+    # its Python field name (`except_`), and the Qdrant client rejects that when
+    # the filter is deserialised again in the `qdrant-find` tool. See
+    # `tests/test_filters.py::TestFilterSerialisation` for the regression tests.
+    query_filter = models.Filter(must=must_conditions, must_not=must_not_conditions)
+    return query_filter.model_dump(by_alias=True)
 
 
 def make_indexes(
