@@ -32,7 +32,117 @@ It acts as a semantic memory layer on top of the Qdrant database.
      - `query` (string): Query to use for searching
      - `collection_name` (string): Name of the collection to store the information in. This field is required if there are no default collection name.
                                    If there is a default collection name, this field is not enabled.
+     - Additional optional filter arguments, only present when filtering is configured. See [Filtering](#filtering).
    - Returns: Information stored in the Qdrant database as separate messages
+
+## Filtering
+
+`qdrant-find` can narrow down its results using the metadata stored next to each
+entry. Filtering is **off by default**: unless one of the settings below is
+configured, `qdrant-find` does not even have a filter argument.
+
+### How filters address metadata
+
+`qdrant-store` saves every entry as a point payload with two keys:
+
+```json
+{
+  "document": "Use uv to manage dependencies",
+  "metadata": { "language": "python", "repo": "mcp-server-qdrant" }
+}
+```
+
+Filters therefore always target a field *inside* `metadata`, such as
+`metadata.language`. The server adds that prefix for you in the declared filters
+mode described below, but you have to write it yourself when passing a raw
+filter.
+
+### Declared filters (`FILTERABLE_FIELDS`)
+
+The recommended way to enable filtering is to declare which metadata fields
+should be filterable. `FILTERABLE_FIELDS` takes a JSON array of field
+definitions:
+
+```json
+[
+  {
+    "name": "language",
+    "description": "Programming language of the snippet",
+    "field_type": "keyword",
+    "condition": "=="
+  },
+  {
+    "name": "repo",
+    "description": "Repository the snippet came from",
+    "field_type": "keyword",
+    "condition": "!="
+  },
+  {
+    "name": "archived",
+    "description": "Whether the snippet is archived",
+    "field_type": "boolean",
+    "condition": "==",
+    "required": true
+  }
+]
+```
+
+For every declared field, the server:
+
+- creates a payload index, so filtering does not degrade into a full scan, and
+- adds one typed and described argument to `qdrant-find`, named after the field.
+  Arguments are optional by default and are skipped when not provided.
+
+Fields marked `"required": true` become mandatory arguments of `qdrant-find`.
+
+A field declared **without** a `condition` is indexed but exposes **no**
+argument. This is useful for pre-indexing a field that is only ever queried
+through a raw filter (see the next section).
+
+Supported combinations of `field_type` and `condition`:
+
+| `field_type` | Supported `condition` values         | Notes                              |
+|--------------|--------------------------------------|------------------------------------|
+| `keyword`    | `==`, `!=`, `any`, `except`          | `any` and `except` take a list     |
+| `integer`    | `==`, `!=`, `>`, `>=`, `<`, `<=`, `any`, `except` | `any` and `except` take a list |
+| `float`      | `>`, `>=`, `<`, `<=`                 | Range comparisons only             |
+| `boolean`    | `==`, `!=`                           |                                    |
+
+With the configuration above, `qdrant-find` accepts `language`, `repo` and
+`archived` arguments, so a client can request Python snippets, exclude entries
+coming from a given repository, and skip archived notes in a single call.
+`archived` is mandatory in this example because it is marked as required.
+
+### Raw filters (`QDRANT_ALLOW_ARBITRARY_FILTER`)
+
+Setting `QDRANT_ALLOW_ARBITRARY_FILTER` to `true` keeps the raw `query_filter`
+argument on `qdrant-find`, which accepts a
+[Qdrant filter](https://qdrant.tech/documentation/concepts/filtering/) as JSON.
+It is passed to Qdrant unchanged, so field keys have to be written in full:
+
+```json
+{
+  "must": [
+    { "key": "metadata.language", "match": { "value": "python" } }
+  ]
+}
+```
+
+No argument is generated for you in this mode, so the filter has to be produced
+by the client. It is off by default.
+
+Declaring a field **with** a `condition` takes precedence over this setting: the
+raw `query_filter` argument is replaced by the generated arguments. To combine
+both, declare the extra fields in `FILTERABLE_FIELDS` without a `condition`, and
+filter on them through `query_filter`.
+
+### Payload indexes are created with the collection
+
+Payload indexes are created together with the collection. A collection that
+already existed before `FILTERABLE_FIELDS` was configured keeps working, but
+filtering on the newly declared fields is not accelerated by an index. Recreate
+the collection, or create the index from the Qdrant side, if that matters for
+your workload.
 
 ## Environment Variables
 
@@ -53,6 +163,8 @@ Configuration is done via environment variables. The only command-line argument 
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `QDRANT_SEARCH_LIMIT`    | Maximum number of results to return from search                     | `10`                                                              |
 | `QDRANT_READ_ONLY`       | Enable read-only mode (disables `qdrant-store` tool)                | `false`                                                           |
+| `FILTERABLE_FIELDS`      | JSON array of metadata fields exposed as `qdrant-find` filter arguments, see [Filtering](#filtering) | None                                     |
+| `QDRANT_ALLOW_ARBITRARY_FILTER` | Expose the raw Qdrant `query_filter` argument on `qdrant-find`, see [Filtering](#filtering) | `false`                            |
 
 ### FastMCP Environment Variables
 
