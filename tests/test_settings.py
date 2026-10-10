@@ -28,6 +28,7 @@ class TestQdrantSettings:
         assert settings.api_key is None
         assert settings.local_path is None
         assert settings.score_threshold is None
+        assert settings.deduplicate is False
 
     def test_full_config(self, monkeypatch):
         """Test loading full configuration from environment variables."""
@@ -37,6 +38,7 @@ class TestQdrantSettings:
         monkeypatch.setenv("QDRANT_SEARCH_LIMIT", "15")
         monkeypatch.setenv("QDRANT_READ_ONLY", "1")
         monkeypatch.setenv("QDRANT_SCORE_THRESHOLD", "0.5")
+        monkeypatch.setenv("QDRANT_DEDUPLICATE", "1")
 
         settings = QdrantSettings()
         assert settings.location == "http://qdrant.example.com:6333"
@@ -45,6 +47,7 @@ class TestQdrantSettings:
         assert settings.search_limit == 15
         assert settings.read_only is True
         assert settings.score_threshold == 0.5
+        assert settings.deduplicate is True
 
     def test_local_path_config(self, monkeypatch):
         """Test loading local path configuration from environment variables."""

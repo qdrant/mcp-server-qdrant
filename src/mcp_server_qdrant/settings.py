@@ -87,6 +87,7 @@ class QdrantSettings(BaseSettings):
         default=None, validation_alias="QDRANT_SCORE_THRESHOLD"
     )
     read_only: bool = Field(default=False, validation_alias="QDRANT_READ_ONLY")
+    deduplicate: bool = Field(default=False, validation_alias="QDRANT_DEDUPLICATE")
 
     filterable_fields: list[FilterableField] | None = Field(default=None)
 

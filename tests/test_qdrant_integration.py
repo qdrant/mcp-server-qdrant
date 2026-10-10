@@ -77,6 +77,39 @@ async def test_search_score_threshold(qdrant_connector):
 
 
 @pytest.mark.asyncio
+async def test_store_duplicates_by_default(qdrant_connector):
+    """Test that storing the same entry twice creates two points by default."""
+    entry = Entry(content="The mitochondria is the powerhouse of the cell.")
+    await qdrant_connector.store(entry)
+    await qdrant_connector.store(entry)
+
+    results = await qdrant_connector.search("mitochondria")
+
+    assert len(results) == 2
+
+
+@pytest.mark.asyncio
+async def test_store_deduplicate(embedding_provider):
+    """Test that deduplication stores identical entries only once."""
+    connector = QdrantConnector(
+        qdrant_url=":memory:",
+        qdrant_api_key=None,
+        collection_name=f"test_collection_{uuid.uuid4().hex}",
+        embedding_provider=embedding_provider,
+        deduplicate=True,
+    )
+    entry = Entry(content="The mitochondria is the powerhouse of the cell.")
+    await connector.store(entry)
+    await connector.store(entry)
+    await connector.store(Entry(content=entry.content, metadata={"source": "biology"}))
+
+    results = await connector.search("mitochondria")
+
+    # Same content with different metadata is a separate entry
+    assert len(results) == 2
+
+
+@pytest.mark.asyncio
 async def test_search_empty_collection(qdrant_connector):
     """Test searching in an empty collection."""
     # Search in an empty collection

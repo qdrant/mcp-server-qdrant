@@ -54,6 +54,7 @@ Configuration is done via environment variables. The only command-line argument 
 | `QDRANT_SEARCH_LIMIT`    | Maximum number of results to return from search                     | `10`                                                              |
 | `QDRANT_READ_ONLY`       | Enable read-only mode (disables `qdrant-store` tool)                | `false`                                                           |
 | `QDRANT_SCORE_THRESHOLD` | Minimal similarity score for a search result to be returned         | None                                                              |
+| `QDRANT_DEDUPLICATE`     | Store identical entries (same content and metadata) only once       | `false`                                                           |
 
 ### FastMCP Environment Variables
 
