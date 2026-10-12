@@ -33,6 +33,10 @@ It acts as a semantic memory layer on top of the Qdrant database.
      - `collection_name` (string): Name of the collection to store the information in. This field is required if there are no default collection name.
                                    If there is a default collection name, this field is not enabled.
    - Returns: Information stored in the Qdrant database as separate messages
+3. `qdrant-list-collections`
+   - List the collections available in the Qdrant database
+   - Only enabled if there is no default collection name, available in read-only mode too
+   - Returns: Names of the collections
 
 ## Environment Variables
 

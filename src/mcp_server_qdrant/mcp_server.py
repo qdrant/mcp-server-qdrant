@@ -164,6 +164,15 @@ class QdrantMCPServer(FastMCP):
                 content.append(self.format_entry(entry))
             return content
 
+        async def list_collections(ctx: Context) -> list[str]:
+            """
+            List the collections available in Qdrant.
+            :param ctx: The context for the request.
+            :return: The names of all the collections.
+            """
+            await ctx.debug("Listing collections")
+            return await self.qdrant_connector.get_collection_names()
+
         find_foo = find
         store_foo = store
 
@@ -189,6 +198,15 @@ class QdrantMCPServer(FastMCP):
             name="qdrant-find",
             description=self.tool_settings.tool_find_description,
         )
+
+        if not self.qdrant_settings.collection_name:
+            # Without a default collection, the agent has to know which collections exist
+            self.tool(
+                list_collections,
+                name="qdrant-list-collections",
+                description="List the names of the collections available in Qdrant. "
+                "Use it to pick the collection_name for the other tools.",
+            )
 
         if not self.qdrant_settings.read_only:
             # Those methods can modify the database
