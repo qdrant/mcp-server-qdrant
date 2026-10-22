@@ -14,6 +14,13 @@ DEFAULT_TOOL_FIND_DESCRIPTION = (
     " - Access memories for further analysis \n"
     " - Get some personal information about the user"
 )
+DEFAULT_TOOL_UPDATE_DESCRIPTION = (
+    "Update a memory that is already stored in Qdrant. Use this tool when you need to "
+    "correct, extend, or replace the content or metadata of an existing memory. \n"
+    "First use the find tool to locate the memory and read its 'id', then call this tool "
+    "with that id. You can update the content, the metadata, or both; anything you leave "
+    "out is kept unchanged."
+)
 
 METADATA_PATH = "metadata"
 
@@ -30,6 +37,10 @@ class ToolSettings(BaseSettings):
     tool_find_description: str = Field(
         default=DEFAULT_TOOL_FIND_DESCRIPTION,
         validation_alias="TOOL_FIND_DESCRIPTION",
+    )
+    tool_update_description: str = Field(
+        default=DEFAULT_TOOL_UPDATE_DESCRIPTION,
+        validation_alias="TOOL_UPDATE_DESCRIPTION",
     )
 
 

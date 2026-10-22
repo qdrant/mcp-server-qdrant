@@ -21,6 +21,9 @@ class Entry(BaseModel):
 
     content: str
     metadata: Metadata | None = None
+    # The Qdrant point id. It is populated when an entry is read back via
+    # `search`, and is the handle required to update an existing entry.
+    id: str | None = None
 
 
 class QdrantConnector:
@@ -109,6 +112,7 @@ class QdrantConnector:
         :return: A list of entries found.
         """
         collection_name = collection_name or self._default_collection_name
+        assert collection_name is not None
         collection_exists = await self._client.collection_exists(collection_name)
         if not collection_exists:
             return []
@@ -132,10 +136,87 @@ class QdrantConnector:
         return [
             Entry(
                 content=result.payload["document"],
-                metadata=result.payload.get("metadata"),
+                metadata=result.payload.get(METADATA_PATH),
+                id=str(result.id),
             )
             for result in search_results.points
         ]
+
+    async def update(
+        self,
+        point_id: str,
+        *,
+        content: str | None = None,
+        metadata: Metadata | None = None,
+        collection_name: str | None = None,
+    ) -> bool:
+        """
+        Update an existing entry in the Qdrant collection in place, identified by its point id.
+
+        Only the fields that are provided are modified; anything left as ``None`` is untouched.
+        A ``content`` change re-embeds the document and replaces the stored vector, while a
+        ``metadata`` change rewrites the metadata payload without touching the vector (so it is
+        cheap and never triggers a re-embedding).
+
+        :param point_id: The id of the point to update. Must refer to an existing point.
+        :param content: The new content to store. If provided, the document is re-embedded.
+        :param metadata: The new metadata. If provided, it replaces the existing metadata.
+        :param collection_name: The name of the collection to update in, optional. If not provided,
+                                the default collection is used.
+        :return: True if the entry was updated.
+        :raises ValueError: If neither content nor metadata is provided, if the collection does not
+                            exist, or if no point with the given id exists.
+        """
+        if content is None and metadata is None:
+            raise ValueError(
+                "Nothing to update: provide 'content', 'metadata', or both."
+            )
+
+        collection_name = collection_name or self._default_collection_name
+        assert collection_name is not None
+
+        collection_exists = await self._client.collection_exists(collection_name)
+        if not collection_exists:
+            raise ValueError(f"Collection '{collection_name}' does not exist.")
+
+        existing = await self._client.retrieve(
+            collection_name=collection_name,
+            ids=[point_id],
+            with_payload=False,
+            with_vectors=False,
+        )
+        if not existing:
+            raise ValueError(
+                f"No entry with id '{point_id}' found in collection '{collection_name}'."
+            )
+
+        if content is not None:
+            embeddings = await self._embedding_provider.embed_documents([content])
+            vector_name = self._embedding_provider.get_vector_name()
+            await self._client.update_vectors(
+                collection_name=collection_name,
+                points=[
+                    models.PointVectors(
+                        id=point_id,
+                        vector={vector_name: embeddings[0]},
+                    )
+                ],
+            )
+            await self._client.set_payload(
+                collection_name=collection_name,
+                payload={"document": content},
+                points=[point_id],
+            )
+
+        if metadata is not None:
+            # Replace only the metadata key, leaving the document/vector untouched.
+            await self._client.set_payload(
+                collection_name=collection_name,
+                payload={METADATA_PATH: metadata},
+                points=[point_id],
+            )
+
+        return True
 
     async def _ensure_collection_exists(self, collection_name: str):
         """

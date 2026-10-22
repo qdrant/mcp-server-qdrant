@@ -83,7 +83,11 @@ class QdrantMCPServer(FastMCP):
         Feel free to override this method in your subclass to customize the format of the entry.
         """
         entry_metadata = json.dumps(entry.metadata) if entry.metadata else ""
-        return f"<entry><content>{entry.content}</content><metadata>{entry_metadata}</metadata></entry>"
+        entry_id = entry.id or ""
+        return (
+            f"<entry><id>{entry_id}</id><content>{entry.content}</content>"
+            f"<metadata>{entry_metadata}</metadata></entry>"
+        )
 
     def setup_tools(self):
         """
@@ -164,8 +168,65 @@ class QdrantMCPServer(FastMCP):
                 content.append(self.format_entry(entry))
             return content
 
+        async def update(
+            ctx: Context,
+            point_id: Annotated[
+                str,
+                Field(
+                    description="The id of the memory to update, as returned in the "
+                    "'id' field by the find tool."
+                ),
+            ],
+            collection_name: Annotated[
+                str, Field(description="The collection the memory lives in")
+            ],
+            # `content` and `metadata` are optional: provide either or both. Anything
+            # left out is kept unchanged. They are typed as non-optional with a None
+            # default for the same MCP client compatibility reason as `store`'s metadata.
+            content: Annotated[
+                str | None,
+                Field(
+                    description="The new content for the memory. If omitted, the "
+                    "existing content is kept. Providing it re-embeds the memory."
+                ),
+            ] = None,
+            metadata: Annotated[
+                Metadata | None,
+                Field(
+                    description="The new metadata for the memory. If omitted, the "
+                    "existing metadata is kept. If provided, it replaces the existing "
+                    "metadata. Any json is accepted."
+                ),
+            ] = None,
+        ) -> str:
+            """
+            Update an existing memory in Qdrant, identified by its point id.
+            :param ctx: The context for the request.
+            :param point_id: The id of the memory to update (from the find tool).
+            :param collection_name: The name of the collection the memory lives in.
+            :param content: The new content, optional. If provided, the memory is re-embedded.
+            :param metadata: The new metadata, optional. If provided, it replaces the old metadata.
+            :return: A message indicating that the memory was updated.
+            """
+            await ctx.debug(f"Updating entry {point_id} in Qdrant")
+
+            try:
+                await self.qdrant_connector.update(
+                    point_id,
+                    content=content,
+                    metadata=metadata,
+                    collection_name=collection_name,
+                )
+            except ValueError as e:
+                return f"Could not update entry {point_id}: {e}"
+
+            if collection_name:
+                return f"Updated entry {point_id} in collection {collection_name}"
+            return f"Updated entry {point_id}"
+
         find_foo = find
         store_foo = store
+        update_foo = update
 
         filterable_conditions = (
             self.qdrant_settings.filterable_fields_dict_with_conditions()
@@ -183,6 +244,9 @@ class QdrantMCPServer(FastMCP):
             store_foo = make_partial_function(
                 store_foo, {"collection_name": self.qdrant_settings.collection_name}
             )
+            update_foo = make_partial_function(
+                update_foo, {"collection_name": self.qdrant_settings.collection_name}
+            )
 
         self.tool(
             find_foo,
@@ -196,4 +260,9 @@ class QdrantMCPServer(FastMCP):
                 store_foo,
                 name="qdrant-store",
                 description=self.tool_settings.tool_store_description,
+            )
+            self.tool(
+                update_foo,
+                name="qdrant-update",
+                description=self.tool_settings.tool_update_description,
             )

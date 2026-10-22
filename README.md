@@ -32,7 +32,20 @@ It acts as a semantic memory layer on top of the Qdrant database.
      - `query` (string): Query to use for searching
      - `collection_name` (string): Name of the collection to store the information in. This field is required if there are no default collection name.
                                    If there is a default collection name, this field is not enabled.
-   - Returns: Information stored in the Qdrant database as separate messages
+   - Returns: Information stored in the Qdrant database as separate messages. Each result includes the entry's `id`, which is required to update it with `qdrant-update`.
+3. `qdrant-update`
+   - Update an entry that is already stored in the Qdrant database, identified by its `id`.
+     First use `qdrant-find` to locate the entry and read its `id`. The content, the metadata,
+     or both can be updated; anything left out is kept unchanged. Updating the content re-embeds
+     the entry, while updating only the metadata leaves the vector untouched.
+   - Input:
+     - `point_id` (string): The `id` of the entry to update, as returned by `qdrant-find`.
+     - `content` (string): Optional new content. If omitted, the existing content is kept.
+     - `metadata` (JSON): Optional new metadata. If provided, it replaces the existing metadata.
+     - `collection_name` (string): Name of the collection the entry lives in. This field is required if there is no default collection name.
+                                   If there is a default collection name, this field is not enabled.
+   - Returns: Confirmation message
+   - This tool is disabled when `QDRANT_READ_ONLY` is enabled.
 
 ## Environment Variables
 
@@ -51,8 +64,9 @@ Configuration is done via environment variables. The only command-line argument 
 | `EMBEDDING_MODEL`        | Name of the embedding model to use                                  | `sentence-transformers/all-MiniLM-L6-v2`                          |
 | `TOOL_STORE_DESCRIPTION` | Custom description for the store tool                               | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `TOOL_FIND_DESCRIPTION`  | Custom description for the find tool                                | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
+| `TOOL_UPDATE_DESCRIPTION`| Custom description for the update tool                              | See default in [`settings.py`](src/mcp_server_qdrant/settings.py) |
 | `QDRANT_SEARCH_LIMIT`    | Maximum number of results to return from search                     | `10`                                                              |
-| `QDRANT_READ_ONLY`       | Enable read-only mode (disables `qdrant-store` tool)                | `false`                                                           |
+| `QDRANT_READ_ONLY`       | Enable read-only mode (disables `qdrant-store` and `qdrant-update`) | `false`                                                           |
 
 ### FastMCP Environment Variables
 
