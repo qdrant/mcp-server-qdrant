@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 from typing import Any
@@ -21,6 +22,7 @@ class Entry(BaseModel):
 
     content: str
     metadata: Metadata | None = None
+    score: float | None = None
 
 
 class QdrantConnector:
@@ -32,6 +34,8 @@ class QdrantConnector:
                             the collection name to be provided.
     :param embedding_provider: The embedding provider to use.
     :param qdrant_local_path: The path to the storage directory for the Qdrant client, if local mode is used.
+    :param deduplicate: If True, point IDs are derived from the content and metadata, so storing the same
+                        entry twice overwrites it instead of creating a duplicate.
     """
 
     def __init__(
@@ -42,6 +46,7 @@ class QdrantConnector:
         embedding_provider: EmbeddingProvider,
         qdrant_local_path: str | None = None,
         field_indexes: dict[str, models.PayloadSchemaType] | None = None,
+        deduplicate: bool = False,
     ):
         self._qdrant_url = qdrant_url.rstrip("/") if qdrant_url else None
         self._qdrant_api_key = qdrant_api_key
@@ -51,6 +56,7 @@ class QdrantConnector:
             location=qdrant_url, api_key=qdrant_api_key, path=qdrant_local_path
         )
         self._field_indexes = field_indexes
+        self._deduplicate = deduplicate
 
     async def get_collection_names(self) -> list[str]:
         """
@@ -83,7 +89,7 @@ class QdrantConnector:
             collection_name=collection_name,
             points=[
                 models.PointStruct(
-                    id=uuid.uuid4().hex,
+                    id=self._point_id(entry),
                     vector={vector_name: embeddings[0]},
                     payload=payload,
                 )
@@ -97,6 +103,7 @@ class QdrantConnector:
         collection_name: str | None = None,
         limit: int = 10,
         query_filter: models.Filter | None = None,
+        score_threshold: float | None = None,
     ) -> list[Entry]:
         """
         Find points in the Qdrant collection. If there are no entries found, an empty list is returned.
@@ -105,6 +112,7 @@ class QdrantConnector:
                                 the default collection is used.
         :param limit: The maximum number of entries to return.
         :param query_filter: The filter to apply to the query, if any.
+        :param score_threshold: Minimal score a result must have to be returned, if any.
 
         :return: A list of entries found.
         """
@@ -127,15 +135,28 @@ class QdrantConnector:
             using=vector_name,
             limit=limit,
             query_filter=query_filter,
+            score_threshold=score_threshold,
         )
 
         return [
             Entry(
                 content=result.payload["document"],
                 metadata=result.payload.get("metadata"),
+                score=result.score,
             )
             for result in search_results.points
         ]
+
+    def _point_id(self, entry: Entry) -> str:
+        """
+        Generate the ID of the point to store. Random by default, deterministic if deduplication is enabled.
+        :param entry: The entry to generate the ID for.
+        :return: The point ID.
+        """
+        if not self._deduplicate:
+            return uuid.uuid4().hex
+        key = json.dumps([entry.content, entry.metadata], sort_keys=True)
+        return uuid.uuid5(uuid.NAMESPACE_OID, key).hex
 
     async def _ensure_collection_exists(self, collection_name: str):
         """

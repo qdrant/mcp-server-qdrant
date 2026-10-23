@@ -72,6 +72,7 @@ class QdrantMCPServer(FastMCP):
             self.embedding_provider,
             qdrant_settings.local_path,
             make_indexes(qdrant_settings.filterable_fields_dict()),
+            qdrant_settings.deduplicate,
         )
 
         super().__init__(name=name, instructions=instructions, **settings)
@@ -83,7 +84,10 @@ class QdrantMCPServer(FastMCP):
         Feel free to override this method in your subclass to customize the format of the entry.
         """
         entry_metadata = json.dumps(entry.metadata) if entry.metadata else ""
-        return f"<entry><content>{entry.content}</content><metadata>{entry_metadata}</metadata></entry>"
+        entry_score = (
+            f"<score>{entry.score:.4f}</score>" if entry.score is not None else ""
+        )
+        return f"<entry><content>{entry.content}</content><metadata>{entry_metadata}</metadata>{entry_score}</entry>"
 
     def setup_tools(self):
         """
@@ -154,6 +158,7 @@ class QdrantMCPServer(FastMCP):
                 collection_name=collection_name,
                 limit=self.qdrant_settings.search_limit,
                 query_filter=query_filter,
+                score_threshold=self.qdrant_settings.score_threshold,
             )
             if not entries:
                 return None

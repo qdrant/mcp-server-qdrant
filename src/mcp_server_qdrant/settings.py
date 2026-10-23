@@ -83,7 +83,11 @@ class QdrantSettings(BaseSettings):
     )
     local_path: str | None = Field(default=None, validation_alias="QDRANT_LOCAL_PATH")
     search_limit: int = Field(default=10, validation_alias="QDRANT_SEARCH_LIMIT")
+    score_threshold: float | None = Field(
+        default=None, validation_alias="QDRANT_SCORE_THRESHOLD"
+    )
     read_only: bool = Field(default=False, validation_alias="QDRANT_READ_ONLY")
+    deduplicate: bool = Field(default=False, validation_alias="QDRANT_DEDUPLICATE")
 
     filterable_fields: list[FilterableField] | None = Field(default=None)
 
