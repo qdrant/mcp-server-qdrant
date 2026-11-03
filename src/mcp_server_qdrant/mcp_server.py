@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Annotated, Any, Optional
+from xml.sax.saxutils import escape
 
 from fastmcp import Context, FastMCP
 from pydantic import Field
@@ -82,8 +83,13 @@ class QdrantMCPServer(FastMCP):
         """
         Feel free to override this method in your subclass to customize the format of the entry.
         """
-        entry_metadata = json.dumps(entry.metadata) if entry.metadata else ""
-        return f"<entry><content>{entry.content}</content><metadata>{entry_metadata}</metadata></entry>"
+        # Stored values must not introduce the formatter's structural tags.
+        entry_content = escape(entry.content)
+        entry_metadata = escape(json.dumps(entry.metadata)) if entry.metadata else ""
+        return (
+            f"<entry><content>{entry_content}</content>"
+            f"<metadata>{entry_metadata}</metadata></entry>"
+        )
 
     def setup_tools(self):
         """
