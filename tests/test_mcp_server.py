@@ -79,7 +79,10 @@ async def test_find_escapes_values_without_changing_stored_entry(server):
         )
         result = await client.call_tool("qdrant-find", {"query": "Note"})
 
-    assert len(result) == 2
-    assert result[0].text == "Results for the query 'Note'"
-    assert_entry_matches(result[1].text, entry)
+    # FastMCP serializes the list returned by qdrant-find as one JSON text block.
+    assert len(result) == 1
+    messages = json.loads(result[0].text)
+    assert len(messages) == 2
+    assert messages[0] == "Results for the query 'Note'"
+    assert_entry_matches(messages[1], entry)
     assert await server.qdrant_connector.search("Note") == [entry]
