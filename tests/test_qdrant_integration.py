@@ -93,6 +93,74 @@ async def test_multiple_entries(qdrant_connector):
 
 
 @pytest.mark.asyncio
+async def test_search_returns_point_id(qdrant_connector):
+    """Test that searched entries carry the point id needed to update them."""
+    await qdrant_connector.store(Entry(content="An entry with a retrievable id"))
+
+    results = await qdrant_connector.search("retrievable id")
+
+    assert len(results) == 1
+    assert results[0].id is not None
+
+
+@pytest.mark.asyncio
+async def test_update_content_and_metadata(qdrant_connector):
+    """Test updating both the content and metadata of an existing entry."""
+    await qdrant_connector.store(
+        Entry(content="Original content", metadata={"status": "draft"})
+    )
+    [stored] = await qdrant_connector.search("Original content")
+
+    await qdrant_connector.update(
+        stored.id,
+        content="Revised content",
+        metadata={"status": "final"},
+    )
+
+    [updated] = await qdrant_connector.search("Revised content")
+    assert updated.id == stored.id
+    assert updated.content == "Revised content"
+    assert updated.metadata == {"status": "final"}
+
+
+@pytest.mark.asyncio
+async def test_update_metadata_only_preserves_content(qdrant_connector):
+    """Test that a metadata-only update leaves the content untouched."""
+    await qdrant_connector.store(
+        Entry(content="Keep this content", metadata={"status": "draft"})
+    )
+    [stored] = await qdrant_connector.search("Keep this content")
+
+    await qdrant_connector.update(stored.id, metadata={"status": "final"})
+
+    [updated] = await qdrant_connector.search("Keep this content")
+    assert updated.content == "Keep this content"
+    assert updated.metadata == {"status": "final"}
+
+
+@pytest.mark.asyncio
+async def test_update_unknown_id_raises(qdrant_connector):
+    """Test that updating a non-existent id raises rather than silently inserting."""
+    # Create the collection first so the failure is specifically about the missing id.
+    await qdrant_connector.store(Entry(content="Seed entry"))
+
+    with pytest.raises(ValueError):
+        await qdrant_connector.update(
+            uuid.uuid4().hex, content="Should not be created"
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_requires_a_field(qdrant_connector):
+    """Test that an update with nothing to change raises."""
+    await qdrant_connector.store(Entry(content="Seed entry"))
+    [stored] = await qdrant_connector.search("Seed entry")
+
+    with pytest.raises(ValueError):
+        await qdrant_connector.update(stored.id)
+
+
+@pytest.mark.asyncio
 async def test_ensure_collection_exists(qdrant_connector):
     """Test that the collection is created if it doesn't exist."""
     # The collection shouldn't exist yet
