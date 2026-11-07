@@ -202,14 +202,16 @@ class QdrantConnector:
                     )
                 ],
             )
+            # Set the document and, if given, the metadata in a single call.
             await self._client.set_payload(
                 collection_name=collection_name,
-                payload={"document": content},
+                payload={
+                    "document": content,
+                    **({METADATA_PATH: metadata} if metadata is not None else {}),
+                },
                 points=[point_id],
             )
-
-        if metadata is not None:
-            # Replace only the metadata key, leaving the document/vector untouched.
+        elif metadata is not None:
             await self._client.set_payload(
                 collection_name=collection_name,
                 payload={METADATA_PATH: metadata},
