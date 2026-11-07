@@ -82,10 +82,11 @@ class QdrantMCPServer(FastMCP):
         """
         Feel free to override this method in your subclass to customize the format of the entry.
         """
+        if entry.id is None:
+            raise ValueError("Cannot format an entry without an id.")
         entry_metadata = json.dumps(entry.metadata) if entry.metadata else ""
-        entry_id = entry.id or ""
         return (
-            f"<entry><id>{entry_id}</id><content>{entry.content}</content>"
+            f"<entry><id>{entry.id}</id><content>{entry.content}</content>"
             f"<metadata>{entry_metadata}</metadata></entry>"
         )
 
