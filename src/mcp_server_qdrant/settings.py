@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings
@@ -45,6 +45,10 @@ class EmbeddingProviderSettings(BaseSettings):
     model_name: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",
         validation_alias="EMBEDDING_MODEL",
+    )
+    threads: Optional[int] = Field(
+        validation_alias="EMBEDDING_THREADS",
+        default=None,
     )
 
 
