@@ -1,7 +1,7 @@
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
 
@@ -75,6 +75,8 @@ class QdrantSettings(BaseSettings):
     """
     Configuration for the Qdrant connector.
     """
+
+    model_config = SettingsConfigDict(env_parse_none_str="None")
 
     location: str | None = Field(default=None, validation_alias="QDRANT_URL")
     api_key: str | None = Field(default=None, validation_alias="QDRANT_API_KEY")
