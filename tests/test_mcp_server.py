@@ -6,6 +6,8 @@ through a real MCP client.
 """
 
 import uuid
+import warnings
+from importlib.metadata import version
 
 import pytest
 from fastmcp import Client
@@ -170,3 +172,30 @@ async def test_read_only_hides_store(embedding_provider_settings):
     async with Client(server) as client:
         tools = await client.list_tools()
         assert {t.name for t in tools} == {"qdrant-find"}
+
+
+async def test_server_reports_package_version(embedding_provider_settings):
+    server = make_server(embedding_provider_settings, COLLECTION_NAME="v")
+    expected = version("mcp-server-qdrant")
+
+    # Clients on the 2026-07-28 protocol read it from server discovery.
+    async with Client(server) as client:
+        assert client.server_info.version == expected
+
+    # Older clients read it from the initialize handshake.
+    async with Client(server, mode="legacy") as client:
+        assert client.initialize_result.server_info.version == expected
+
+
+async def test_tools_do_not_use_deprecated_mcp_logging(embedding_provider_settings):
+    server = make_server(embedding_provider_settings, COLLECTION_NAME="logging")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        async with Client(server) as client:
+            await client.call_tool("qdrant-store", {"information": "hello"})
+            await client.call_tool("qdrant-find", {"query": "hello"})
+
+    deprecated = [
+        w for w in caught if "logging capability is deprecated" in str(w.message)
+    ]
+    assert not deprecated
