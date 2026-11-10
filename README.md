@@ -67,6 +67,11 @@ important ones are listed below:
 | `FASTMCP_PORT`               | Port to run the server on (SSE and HTTP transports)             | `8000`        |
 | `FASTMCP_MASK_ERROR_DETAILS` | Hide exception details from tool error messages sent to clients | `false`       |
 
+> [!NOTE]
+> Before version 0.9.0, these settings used the `FASTMCP_SERVER_` prefix, for example `FASTMCP_SERVER_HOST`.
+> The old `FASTMCP_SERVER_HOST`, `FASTMCP_SERVER_PORT`, and `FASTMCP_SERVER_DEBUG` names still work but are deprecated
+> and will be removed in a future release. If both names are set, the new one wins.
+
 ## Installation
 
 ### Using uvx
