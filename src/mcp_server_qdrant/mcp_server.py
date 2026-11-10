@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Annotated, Any, Optional
+from xml.sax.saxutils import escape
 
 from fastmcp import Context, FastMCP
 from pydantic import Field
@@ -81,9 +82,15 @@ class QdrantMCPServer(FastMCP):
     def format_entry(self, entry: Entry) -> str:
         """
         Feel free to override this method in your subclass to customize the format of the entry.
+
+        Content and metadata are XML-escaped so stored values cannot inject the
+        formatter's own tags (``</content>``, ``<metadata>`` and so on).
         """
         entry_metadata = json.dumps(entry.metadata) if entry.metadata else ""
-        return f"<entry><content>{entry.content}</content><metadata>{entry_metadata}</metadata></entry>"
+        return (
+            f"<entry><content>{escape(entry.content)}</content>"
+            f"<metadata>{escape(entry_metadata)}</metadata></entry>"
+        )
 
     def setup_tools(self):
         """
