@@ -169,7 +169,7 @@ def make_filter(
 
     return models.Filter(
         must=must_conditions, must_not=must_not_conditions
-    ).model_dump()
+    ).model_dump(by_alias=True)
 
 
 def make_indexes(
