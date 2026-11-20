@@ -145,8 +145,8 @@ class QdrantConnector:
         Safe against concurrent callers: the check-then-create window is not
         atomic against the server, so two callers can both see the collection
         as missing and both attempt to create it. The loser gets a "collection
-        already exists" error, which we swallow after confirming the collection
-        is now present.
+        already exists" error, which we treat as success because the
+        collection now exists.
 
         :param collection_name: The name of the collection to ensure exists.
         """
@@ -176,18 +176,12 @@ class QdrantConnector:
             if e.status_code != 409:
                 raise
 
+        # Creating a payload index that already exists succeeds, so callers
+        # that lost the race above can safely repeat this.
         if self._field_indexes:
             for field_name, field_type in self._field_indexes.items():
-                try:
-                    await self._client.create_payload_index(
-                        collection_name=collection_name,
-                        field_name=field_name,
-                        field_schema=field_type,
-                    )
-                except (ValueError, UnexpectedResponse):
-                    # Payload index already exists (races or repeated calls).
-                    logger.debug(
-                        "payload index %r on %r already present, skipping",
-                        field_name,
-                        collection_name,
-                    )
+                await self._client.create_payload_index(
+                    collection_name=collection_name,
+                    field_name=field_name,
+                    field_schema=field_type,
+                )
