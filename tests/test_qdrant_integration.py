@@ -49,6 +49,67 @@ async def test_store_and_search(qdrant_connector):
 
 
 @pytest.mark.asyncio
+async def test_search_returns_score(qdrant_connector):
+    """Test that search results carry their similarity score."""
+    await qdrant_connector.store(Entry(content="The quick brown fox jumps"))
+
+    results = await qdrant_connector.search("fox jumps")
+
+    assert len(results) == 1
+    assert results[0].score is not None
+    assert 0 < results[0].score <= 1
+
+
+@pytest.mark.asyncio
+async def test_search_score_threshold(qdrant_connector):
+    """Test that results below the score threshold are filtered out."""
+    await qdrant_connector.store(Entry(content="The quick brown fox jumps"))
+
+    relevant = await qdrant_connector.search(
+        "The quick brown fox jumps", score_threshold=0.9
+    )
+    irrelevant = await qdrant_connector.search(
+        "Quarterly tax filing deadlines", score_threshold=0.9
+    )
+
+    assert len(relevant) == 1
+    assert len(irrelevant) == 0
+
+
+@pytest.mark.asyncio
+async def test_store_duplicates_by_default(qdrant_connector):
+    """Test that storing the same entry twice creates two points by default."""
+    entry = Entry(content="The mitochondria is the powerhouse of the cell.")
+    await qdrant_connector.store(entry)
+    await qdrant_connector.store(entry)
+
+    results = await qdrant_connector.search("mitochondria")
+
+    assert len(results) == 2
+
+
+@pytest.mark.asyncio
+async def test_store_deduplicate(embedding_provider):
+    """Test that deduplication stores identical entries only once."""
+    connector = QdrantConnector(
+        qdrant_url=":memory:",
+        qdrant_api_key=None,
+        collection_name=f"test_collection_{uuid.uuid4().hex}",
+        embedding_provider=embedding_provider,
+        deduplicate=True,
+    )
+    entry = Entry(content="The mitochondria is the powerhouse of the cell.")
+    await connector.store(entry)
+    await connector.store(entry)
+    await connector.store(Entry(content=entry.content, metadata={"source": "biology"}))
+
+    results = await connector.search("mitochondria")
+
+    # Same content with different metadata is a separate entry
+    assert len(results) == 2
+
+
+@pytest.mark.asyncio
 async def test_search_empty_collection(qdrant_connector):
     """Test searching in an empty collection."""
     # Search in an empty collection
