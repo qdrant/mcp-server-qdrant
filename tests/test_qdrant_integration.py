@@ -341,4 +341,3 @@ async def test_validate_collection_unnamed_vector(qdrant_connector):
         match=f"Collection '{col_name}' is configured with an unnamed default vector",
     ):
         await qdrant_connector._ensure_collection_exists(col_name)
-

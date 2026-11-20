@@ -111,6 +111,9 @@ class QdrantConnector:
         :return: A list of entries found.
         """
         collection_name = collection_name or self._default_collection_name
+        if collection_name is None:
+            return []
+
         collection_exists = await self._client.collection_exists(collection_name)
         if not collection_exists:
             return []
@@ -171,9 +174,10 @@ class QdrantConnector:
                     f"Collection '{collection_name}' vector '{vector_name}' has dimension {actual_size}, "
                     f"but embedding provider expects dimension {expected_size}."
                 )
-        elif hasattr(vectors_config, "size"):
+        elif vectors_config is not None and hasattr(vectors_config, "size"):
+            unnamed_size = getattr(vectors_config, "size", None)
             raise ValueError(
-                f"Collection '{collection_name}' is configured with an unnamed default vector (size {vectors_config.size}), "
+                f"Collection '{collection_name}' is configured with an unnamed default vector (size {unnamed_size}), "
                 f"but embedding provider requires named vector '{vector_name}' (size {expected_size})."
             )
         else:
