@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from qdrant_client import models
 
 from mcp_server_qdrant.embeddings.fastembed import FastEmbedProvider
 from mcp_server_qdrant.qdrant import Entry, QdrantConnector
@@ -236,3 +237,108 @@ async def test_nonexistent_collection_search(qdrant_connector):
 
     # Verify results
     assert len(results) == 0
+
+
+@pytest.mark.asyncio
+async def test_validate_collection_matching(qdrant_connector):
+    """Test that validating a collection with matching vector name and dimension succeeds and caches."""
+    col_name = f"matching_col_{uuid.uuid4().hex}"
+    vec_name = qdrant_connector._embedding_provider.get_vector_name()
+    vec_size = qdrant_connector._embedding_provider.get_vector_size()
+
+    await qdrant_connector._client.create_collection(
+        collection_name=col_name,
+        vectors_config={
+            vec_name: models.VectorParams(
+                size=vec_size,
+                distance=models.Distance.COSINE,
+            )
+        },
+    )
+
+    # Initial validation should succeed and cache
+    assert col_name not in qdrant_connector._validated_collections
+    await qdrant_connector._ensure_collection_exists(col_name)
+    assert col_name in qdrant_connector._validated_collections
+
+    # Storing and searching should also succeed
+    await qdrant_connector.store(Entry(content="Valid entry"), collection_name=col_name)
+    results = await qdrant_connector.search("Valid", collection_name=col_name)
+    assert len(results) == 1
+
+
+@pytest.mark.asyncio
+async def test_validate_collection_missing_vector_name(qdrant_connector):
+    """Test that a collection with an unexpected vector name raises a descriptive ValueError."""
+    col_name = f"wrong_vec_name_{uuid.uuid4().hex}"
+    vec_size = qdrant_connector._embedding_provider.get_vector_size()
+
+    await qdrant_connector._client.create_collection(
+        collection_name=col_name,
+        vectors_config={
+            "different-vector-name": models.VectorParams(
+                size=vec_size,
+                distance=models.Distance.COSINE,
+            )
+        },
+    )
+
+    expected_vec_name = qdrant_connector._embedding_provider.get_vector_name()
+    with pytest.raises(
+        ValueError,
+        match=f"Collection '{col_name}' does not contain vector '{expected_vec_name}'",
+    ):
+        await qdrant_connector._ensure_collection_exists(col_name)
+
+    with pytest.raises(
+        ValueError,
+        match=f"Collection '{col_name}' does not contain vector '{expected_vec_name}'",
+    ):
+        await qdrant_connector.search("test", collection_name=col_name)
+
+
+@pytest.mark.asyncio
+async def test_validate_collection_dimension_mismatch(qdrant_connector):
+    """Test that a collection with matching vector name but mismatched dimensions raises ValueError."""
+    col_name = f"wrong_dim_{uuid.uuid4().hex}"
+    vec_name = qdrant_connector._embedding_provider.get_vector_name()
+    expected_size = qdrant_connector._embedding_provider.get_vector_size()
+    wrong_size = expected_size + 100
+
+    await qdrant_connector._client.create_collection(
+        collection_name=col_name,
+        vectors_config={
+            vec_name: models.VectorParams(
+                size=wrong_size,
+                distance=models.Distance.COSINE,
+            )
+        },
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=f"Collection '{col_name}' vector '{vec_name}' has dimension {wrong_size}, but embedding provider expects dimension {expected_size}",
+    ):
+        await qdrant_connector._ensure_collection_exists(col_name)
+
+
+@pytest.mark.asyncio
+async def test_validate_collection_unnamed_vector(qdrant_connector):
+    """Test that a collection with an unnamed default vector raises a descriptive ValueError."""
+    col_name = f"unnamed_vec_{uuid.uuid4().hex}"
+    vec_size = qdrant_connector._embedding_provider.get_vector_size()
+
+    await qdrant_connector._client.create_collection(
+        collection_name=col_name,
+        vectors_config=models.VectorParams(
+            size=vec_size,
+            distance=models.Distance.COSINE,
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=f"Collection '{col_name}' is configured with an unnamed default vector",
+    ):
+        await qdrant_connector._ensure_collection_exists(col_name)
+

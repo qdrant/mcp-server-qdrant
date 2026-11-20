@@ -52,6 +52,7 @@ class QdrantConnector:
             location=qdrant_url, api_key=qdrant_api_key, path=qdrant_local_path
         )
         self._field_indexes = field_indexes
+        self._validated_collections: set[str] = set()
 
     async def get_collection_names(self) -> list[str]:
         """
@@ -114,6 +115,8 @@ class QdrantConnector:
         if not collection_exists:
             return []
 
+        await self._validate_collection(collection_name)
+
         # Embed the query
         # ToDo: instead of embedding text explicitly, use `models.Document`,
         # it should unlock usage of server-side inference.
@@ -138,6 +141,48 @@ class QdrantConnector:
             for result in search_results.points
         ]
 
+    async def _validate_collection(self, collection_name: str) -> None:
+        """
+        Validate that an existing collection is compatible with the configured embedding provider.
+        Checks for vector name presence and dimensionality match.
+        :param collection_name: The name of the collection to validate.
+        """
+        if collection_name in self._validated_collections:
+            return
+
+        collection_info = await self._client.get_collection(collection_name)
+        params = getattr(collection_info, "config", None)
+        params = getattr(params, "params", None) if params else None
+        vectors_config = getattr(params, "vectors", None) if params else None
+
+        vector_name = self._embedding_provider.get_vector_name()
+        expected_size = self._embedding_provider.get_vector_size()
+
+        if isinstance(vectors_config, dict):
+            if vector_name not in vectors_config:
+                available_vectors = list(vectors_config.keys())
+                raise ValueError(
+                    f"Collection '{collection_name}' does not contain vector '{vector_name}'. "
+                    f"Available named vectors: {available_vectors}."
+                )
+            actual_size = vectors_config[vector_name].size
+            if actual_size != expected_size:
+                raise ValueError(
+                    f"Collection '{collection_name}' vector '{vector_name}' has dimension {actual_size}, "
+                    f"but embedding provider expects dimension {expected_size}."
+                )
+        elif hasattr(vectors_config, "size"):
+            raise ValueError(
+                f"Collection '{collection_name}' is configured with an unnamed default vector (size {vectors_config.size}), "
+                f"but embedding provider requires named vector '{vector_name}' (size {expected_size})."
+            )
+        else:
+            raise ValueError(
+                f"Collection '{collection_name}' has an unsupported vector configuration: {vectors_config}."
+            )
+
+        self._validated_collections.add(collection_name)
+
     async def _ensure_collection_exists(self, collection_name: str):
         """
         Ensure that the collection exists, creating it if necessary.
@@ -151,6 +196,7 @@ class QdrantConnector:
         :param collection_name: The name of the collection to ensure exists.
         """
         if await self._client.collection_exists(collection_name):
+            await self._validate_collection(collection_name)
             return
 
         vector_size = self._embedding_provider.get_vector_size()
@@ -166,15 +212,18 @@ class QdrantConnector:
                     )
                 },
             )
+            self._validated_collections.add(collection_name)
         except ValueError as e:
             # Local mode raises ValueError("Collection ... already exists")
             # when another caller wins the race between us. Treat as success.
             if "already exists" not in str(e).lower():
                 raise
+            await self._validate_collection(collection_name)
         except UnexpectedResponse as e:
             # Remote mode: server returns 409 Conflict on duplicate create.
             if e.status_code != 409:
                 raise
+            await self._validate_collection(collection_name)
 
         # Creating a payload index that already exists succeeds, so callers
         # that lost the race above can safely repeat this.
