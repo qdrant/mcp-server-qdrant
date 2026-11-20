@@ -22,6 +22,7 @@ class Entry(BaseModel):
 
     content: str
     metadata: Metadata | None = None
+    score: float | None = None
 
 
 class QdrantConnector:
@@ -98,6 +99,7 @@ class QdrantConnector:
         collection_name: str | None = None,
         limit: int = 10,
         query_filter: models.Filter | None = None,
+        score_threshold: float | None = None,
     ) -> list[Entry]:
         """
         Find points in the Qdrant collection. If there are no entries found, an empty list is returned.
@@ -106,6 +108,7 @@ class QdrantConnector:
                                 the default collection is used.
         :param limit: The maximum number of entries to return.
         :param query_filter: The filter to apply to the query, if any.
+        :param score_threshold: Minimal score a result must have to be returned, if any.
 
         :return: A list of entries found.
         """
@@ -128,12 +131,14 @@ class QdrantConnector:
             using=vector_name,
             limit=limit,
             query_filter=query_filter,
+            score_threshold=score_threshold,
         )
 
         return [
             Entry(
                 content=result.payload["document"],
                 metadata=result.payload.get("metadata"),
+                score=result.score,
             )
             for result in search_results.points
         ]
