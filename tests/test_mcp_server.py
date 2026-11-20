@@ -137,6 +137,44 @@ async def test_typed_filters_become_tool_parameters(embedding_provider_settings)
             await client.call_tool("qdrant-find", {"query": "asyncio", "year": "abc"})
 
 
+async def test_except_filter_condition(embedding_provider_settings):
+    fields = [
+        FilterableField(
+            name="excluded_lang",
+            description="Languages to exclude",
+            field_type="keyword",
+            condition="except",
+        ),
+    ]
+    server = make_server(
+        embedding_provider_settings,
+        COLLECTION_NAME="except_test",
+        filterable_fields=fields,
+    )
+    async with Client(server) as client:
+        await client.call_tool(
+            "qdrant-store",
+            {
+                "information": "python info",
+                "metadata": {"excluded_lang": "python"},
+            },
+        )
+        await client.call_tool(
+            "qdrant-store",
+            {
+                "information": "rust info",
+                "metadata": {"excluded_lang": "rust"},
+            },
+        )
+
+        result = await client.call_tool(
+            "qdrant-find",
+            {"query": "info", "excluded_lang": ["rust"]},
+        )
+        assert "python info" in text_of(result)
+        assert "rust info" not in text_of(result)
+
+
 async def test_arbitrary_filter(embedding_provider_settings):
     server = make_server(
         embedding_provider_settings,
