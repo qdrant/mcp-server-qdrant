@@ -9,9 +9,11 @@ import uuid
 import warnings
 from importlib.metadata import version
 
+import httpx
 import pytest
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
+from qdrant_client.http.exceptions import ResponseHandlingException
 
 from mcp_server_qdrant.mcp_server import QdrantMCPServer
 from mcp_server_qdrant.settings import (
@@ -237,3 +239,63 @@ async def test_tools_do_not_use_deprecated_mcp_logging(embedding_provider_settin
         w for w in caught if "logging capability is deprecated" in str(w.message)
     ]
     assert not deprecated
+
+
+async def timed_out(*args, **kwargs):
+    # What qdrant-client raises when Qdrant accepts the connection but does not answer.
+    try:
+        raise httpx.ReadTimeout("")
+    except httpx.ReadTimeout as error:
+        raise ResponseHandlingException(error)
+
+
+async def refused(*args, **kwargs):
+    try:
+        raise httpx.ConnectError("All connection attempts failed")
+    except httpx.ConnectError as error:
+        raise ResponseHandlingException(error)
+
+
+@pytest.mark.parametrize(
+    "tool, arguments, method",
+    [
+        ("qdrant-find", {"query": "hello"}, "search"),
+        ("qdrant-store", {"information": "hello"}, "store"),
+    ],
+)
+async def test_error_without_message_names_its_type(
+    embedding_provider_settings, monkeypatch, tool, arguments, method
+):
+    server = make_server(embedding_provider_settings, COLLECTION_NAME="errors")
+    monkeypatch.setattr(server.qdrant_connector, method, timed_out)
+
+    async with Client(server) as client:
+        with pytest.raises(ToolError) as excinfo:
+            await client.call_tool(tool, arguments)
+
+    assert str(excinfo.value) == (
+        f"Error calling tool '{tool}': ResponseHandlingException caused by ReadTimeout"
+    )
+
+
+@pytest.mark.parametrize(
+    "tool, arguments, method",
+    [
+        ("qdrant-find", {"query": "hello"}, "search"),
+        ("qdrant-store", {"information": "hello"}, "store"),
+    ],
+)
+async def test_error_with_message_is_unchanged(
+    embedding_provider_settings, monkeypatch, tool, arguments, method
+):
+    server = make_server(embedding_provider_settings, COLLECTION_NAME="errors")
+    monkeypatch.setattr(server.qdrant_connector, method, refused)
+
+    async with Client(server) as client:
+        with pytest.raises(ToolError) as excinfo:
+            await client.call_tool(tool, arguments)
+
+    assert (
+        str(excinfo.value)
+        == f"Error calling tool '{tool}': All connection attempts failed"
+    )
