@@ -5,6 +5,7 @@ from typing import Annotated, Any, Optional
 from xml.sax.saxutils import escape
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 from fastmcp.utilities.logging import get_logger
 from pydantic import Field
 from qdrant_client import models
@@ -32,6 +33,25 @@ def _server_version() -> str | None:
     except PackageNotFoundError:
         # Running from source without installing: let FastMCP use its default.
         return None
+
+
+def _error_types(error: BaseException) -> str:
+    """Name the exception types in the cause chain, up to the first one with a message.
+
+    Some errors carry no message at all, such as `httpx.ReadTimeout("")` when Qdrant
+    does not answer in time, so the client would otherwise see an empty error.
+    """
+    names: list[str] = []
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        if names and str(current):
+            break
+        seen.add(id(current))
+        if not names or names[-1] != type(current).__name__:
+            names.append(type(current).__name__)
+        current = current.__cause__ or current.__context__
+    return " caused by ".join(names)
 
 
 # FastMCP is an alternative interface for declaring the capabilities
@@ -138,7 +158,16 @@ class QdrantMCPServer(FastMCP):
 
             entry = Entry(content=information, metadata=metadata)
 
-            await self.qdrant_connector.store(entry, collection_name=collection_name)
+            try:
+                await self.qdrant_connector.store(
+                    entry, collection_name=collection_name
+                )
+            except Exception as error:
+                if str(error):
+                    raise
+                raise ToolError(
+                    f"Error calling tool 'qdrant-store': {_error_types(error)}"
+                ) from error
             if collection_name:
                 return f"Remembered: {information} in collection {collection_name}"
             return f"Remembered: {information}"
@@ -165,12 +194,19 @@ class QdrantMCPServer(FastMCP):
 
             logger.debug("Finding results for query %s", query)
 
-            entries = await self.qdrant_connector.search(
-                query,
-                collection_name=collection_name,
-                limit=self.qdrant_settings.search_limit,
-                query_filter=query_filter,
-            )
+            try:
+                entries = await self.qdrant_connector.search(
+                    query,
+                    collection_name=collection_name,
+                    limit=self.qdrant_settings.search_limit,
+                    query_filter=query_filter,
+                )
+            except Exception as error:
+                if str(error):
+                    raise
+                raise ToolError(
+                    f"Error calling tool 'qdrant-find': {_error_types(error)}"
+                ) from error
             if not entries:
                 return None
             content = [
