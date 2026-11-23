@@ -126,6 +126,22 @@ class QdrantMCPServer(FastMCP):
             f"<metadata>{escape(entry_metadata)}</metadata></entry>"
         )
 
+    def format_skipped_note(self, skipped: int) -> str:
+        """
+        Tell the model that some matches were left out, so it does not treat
+        the results as complete.
+        """
+        if skipped == 1:
+            what = "1 matching point was left out because its payload has"
+        else:
+            what = (
+                f"{skipped} matching points were left out because their payloads have"
+            )
+        return (
+            f"Note: {what} no 'document' field. This tool only returns points "
+            "that store their text in that field."
+        )
+
     def setup_tools(self):
         """
         Register the tools in the server.
@@ -207,13 +223,17 @@ class QdrantMCPServer(FastMCP):
                 raise ToolError(
                     f"Error calling tool 'qdrant-find': {_error_types(error)}"
                 ) from error
-            if not entries:
+            # A subclass may override search() and return a plain list.
+            skipped = getattr(entries, "skipped", 0)
+            if not entries and not skipped:
                 return None
             content = [
                 f"Results for the query '{query}'",
             ]
             for entry in entries:
                 content.append(self.format_entry(entry))
+            if skipped:
+                content.append(self.format_skipped_note(skipped))
             return content
 
         find_foo = find
