@@ -71,6 +71,9 @@ class QdrantConnector:
             location=qdrant_url, api_key=qdrant_api_key, path=qdrant_local_path
         )
         self._field_indexes = field_indexes
+        # Local mode ignores payload indexes: it never reports them and warns
+        # every time one is created.
+        self._is_local = qdrant_local_path is not None or qdrant_url == ":memory:"
 
     async def get_collection_names(self) -> list[str]:
         """
@@ -136,6 +139,8 @@ class QdrantConnector:
         if collection_info is None:
             return SearchResults()
         self._check_vectors(collection_name, collection_info)
+        # In read-only mode, search is the only call that reaches the collection.
+        await self._create_missing_indexes(collection_name, collection_info)
 
         # Embed the query
         # ToDo: instead of embedding text explicitly, use `models.Document`,
@@ -223,6 +228,42 @@ class QdrantConnector:
             "or use a different collection."
         )
 
+    async def _create_missing_indexes(
+        self, collection_name: str, collection_info: models.CollectionInfo
+    ) -> None:
+        """
+        Create the payload indexes for the filterable fields that the collection
+        doesn't have yet. The collection may predate a filterable field, or may have
+        been created outside this server. Without the index, filtering is slow, and
+        collections in strict mode, the default on Qdrant Cloud, reject the filter.
+
+        If the API key isn't allowed to create indexes, log a warning and carry on.
+        """
+        if not self._field_indexes or self._is_local:
+            return
+        existing = collection_info.payload_schema or {}
+        for field_name, field_type in self._field_indexes.items():
+            if field_name in existing:
+                continue
+            try:
+                await self._client.create_payload_index(
+                    collection_name=collection_name,
+                    field_name=field_name,
+                    field_schema=field_type,
+                )
+            except UnexpectedResponse as e:
+                if e.status_code != 403:
+                    raise
+                logger.warning(
+                    "Collection %r has no payload index on %r, and the API key is not "
+                    "allowed to create one. Filters on this field may fail: create the "
+                    "index with a key that has write access to the collection.",
+                    collection_name,
+                    field_name,
+                )
+                # Every other index would be refused the same way.
+                return
+
     async def _ensure_collection_exists(self, collection_name: str):
         """
         Ensure that the collection exists, creating it if necessary.
@@ -238,6 +279,7 @@ class QdrantConnector:
         collection_info = await self._get_collection(collection_name)
         if collection_info is not None:
             self._check_vectors(collection_name, collection_info)
+            await self._create_missing_indexes(collection_name, collection_info)
             return
 
         vector_size = self._embedding_provider.get_vector_size()
