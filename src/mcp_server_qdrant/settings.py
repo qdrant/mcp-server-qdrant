@@ -16,6 +16,7 @@ DEFAULT_TOOL_FIND_DESCRIPTION = (
 )
 
 METADATA_PATH = "metadata"
+DOCUMENT_PATH = "document"
 
 
 class ToolSettings(BaseSettings):
