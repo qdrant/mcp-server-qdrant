@@ -266,7 +266,7 @@ async def test_points_without_document_are_skipped_with_note(
         text = text_of(await client.call_tool("qdrant-find", {"query": "asyncio"}))
         assert "asyncio tips" in text
         assert "tricks" not in text
-        assert "Note: 1 matching point was left out" in text
+        assert "Note: 1 matching point(s) were left out" in text
 
 
 async def test_only_points_without_document_returns_note(embedding_provider_settings):
@@ -287,7 +287,7 @@ async def test_only_points_without_document_returns_note(embedding_provider_sett
     async with Client(server) as client:
         text = text_of(await client.call_tool("qdrant-find", {"query": "one"}))
         assert "<entry>" not in text
-        assert "Note: 2 matching points were left out" in text
+        assert "Note: 2 matching point(s) were left out" in text
 
 
 async def test_read_only_hides_store(embedding_provider_settings):
