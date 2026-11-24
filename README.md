@@ -1,6 +1,6 @@
 # mcp-server-qdrant: A Qdrant MCP server
 
-[![smithery badge](https://smithery.ai/badge/mcp-server-qdrant)](https://smithery.ai/protocol/mcp-server-qdrant)
+[![Listed on Skillselion](https://skillselion.com/badge/mcp/tool/io.github.qdrant/mcp-server-qdrant.svg)](https://skillselion.com/mcp/tool/io.github.qdrant/mcp-server-qdrant)
 
 > The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables
 > seamless integration between LLM applications and external data sources and tools. Whether you're building an
