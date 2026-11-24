@@ -167,9 +167,9 @@ def make_filter(
                 f"Unsupported field type {field.field_type} for field {field_name}"
             )
 
-    return models.Filter(
-        must=must_conditions, must_not=must_not_conditions
-    ).model_dump()
+    return models.Filter(must=must_conditions, must_not=must_not_conditions).model_dump(
+        by_alias=True
+    )
 
 
 def make_indexes(

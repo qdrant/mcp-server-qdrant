@@ -1,10 +1,17 @@
-import pytest
+import itertools
+import typing
 
+import pytest
+from pydantic import ValidationError
+
+from mcp_server_qdrant.common.filters import make_filter
 from mcp_server_qdrant.embeddings.types import EmbeddingProviderType
 from mcp_server_qdrant.settings import (
     DEFAULT_TOOL_FIND_DESCRIPTION,
     DEFAULT_TOOL_STORE_DESCRIPTION,
+    SUPPORTED_CONDITIONS,
     EmbeddingProviderSettings,
+    FilterableField,
     QdrantSettings,
     ToolSettings,
 )
@@ -107,3 +114,61 @@ class TestToolSettings:
         settings = ToolSettings()
         assert settings.tool_store_description == "Custom store description"
         assert settings.tool_find_description == "Custom find description"
+
+
+FIELD_TYPES = typing.get_args(FilterableField.model_fields["field_type"].annotation)
+CONDITIONS = typing.get_args(
+    typing.get_args(FilterableField.model_fields["condition"].annotation)[0]
+)
+ALL_PAIRS = list(itertools.product(FIELD_TYPES, CONDITIONS))
+VALID_PAIRS = [(t, c) for t, c in ALL_PAIRS if c in SUPPORTED_CONDITIONS[t]]
+INVALID_PAIRS = [(t, c) for t, c in ALL_PAIRS if c not in SUPPORTED_CONDITIONS[t]]
+SAMPLE_VALUES = {"keyword": "a", "integer": 1, "float": 1.5, "boolean": True}
+
+
+class TestFilterableField:
+    @pytest.mark.parametrize("field_type, condition", VALID_PAIRS)
+    def test_supported_condition_is_accepted(self, field_type, condition):
+        FilterableField(
+            name="f", description="d", field_type=field_type, condition=condition
+        )
+
+    @pytest.mark.parametrize("field_type, condition", INVALID_PAIRS)
+    def test_unsupported_condition_is_rejected(self, field_type, condition):
+        with pytest.raises(ValidationError, match="is not supported for"):
+            FilterableField(
+                name="f", description="d", field_type=field_type, condition=condition
+            )
+
+    @pytest.mark.parametrize("field_type", FIELD_TYPES)
+    def test_no_condition_is_accepted_for_every_type(self, field_type):
+        FilterableField(name="f", description="d", field_type=field_type)
+
+    @pytest.mark.parametrize("field_type, condition", ALL_PAIRS)
+    def test_table_matches_make_filter(self, field_type, condition):
+        """SUPPORTED_CONDITIONS must list exactly what make_filter can build."""
+        # model_construct skips validation, so make_filter sees invalid pairs too.
+        field = FilterableField.model_construct(
+            name="f", description="d", field_type=field_type, condition=condition
+        )
+        value = SAMPLE_VALUES[field_type]
+        if condition in ("any", "except"):
+            value = [value]
+        if condition in SUPPORTED_CONDITIONS[field_type]:
+            make_filter({"f": field}, {"f": value})
+        else:
+            with pytest.raises(ValueError):
+                make_filter({"f": field}, {"f": value})
+
+    def test_invalid_condition_fails_when_settings_load(self, monkeypatch):
+        monkeypatch.setenv(
+            "FILTERABLE_FIELDS",
+            '[{"name": "lang", "description": "Language", '
+            '"field_type": "keyword", "condition": ">"}]',
+        )
+        with pytest.raises(ValidationError) as error:
+            QdrantSettings()
+        assert (
+            "Condition '>' is not supported for keyword field 'lang'. "
+            "Supported conditions: ==, !=, any, except." in str(error.value)
+        )
