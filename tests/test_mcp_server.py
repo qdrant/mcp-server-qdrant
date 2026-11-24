@@ -9,9 +9,12 @@ import uuid
 import warnings
 from importlib.metadata import version
 
+import httpx
 import pytest
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
+from qdrant_client import models
+from qdrant_client.http.exceptions import ResponseHandlingException
 
 from mcp_server_qdrant.mcp_server import QdrantMCPServer
 from mcp_server_qdrant.settings import (
@@ -137,6 +140,44 @@ async def test_typed_filters_become_tool_parameters(embedding_provider_settings)
             await client.call_tool("qdrant-find", {"query": "asyncio", "year": "abc"})
 
 
+async def test_except_filter_condition(embedding_provider_settings):
+    fields = [
+        FilterableField(
+            name="excluded_lang",
+            description="Languages to exclude",
+            field_type="keyword",
+            condition="except",
+        ),
+    ]
+    server = make_server(
+        embedding_provider_settings,
+        COLLECTION_NAME="except_test",
+        filterable_fields=fields,
+    )
+    async with Client(server) as client:
+        await client.call_tool(
+            "qdrant-store",
+            {
+                "information": "python info",
+                "metadata": {"excluded_lang": "python"},
+            },
+        )
+        await client.call_tool(
+            "qdrant-store",
+            {
+                "information": "rust info",
+                "metadata": {"excluded_lang": "rust"},
+            },
+        )
+
+        result = await client.call_tool(
+            "qdrant-find",
+            {"query": "info", "excluded_lang": ["rust"]},
+        )
+        assert "python info" in text_of(result)
+        assert "rust info" not in text_of(result)
+
+
 async def test_arbitrary_filter(embedding_provider_settings):
     server = make_server(
         embedding_provider_settings,
@@ -163,6 +204,90 @@ async def test_arbitrary_filter(embedding_provider_settings):
             await client.call_tool(
                 "qdrant-find", {"query": "asyncio", "query_filter": {"must": "nope"}}
             )
+
+
+VECTOR_NAME = "fast-all-minilm-l6-v2"
+COSINE = models.Distance.COSINE
+
+
+@pytest.mark.parametrize(
+    "vectors_config, found",
+    [
+        (models.VectorParams(size=384, distance=COSINE), "a single unnamed vector"),
+        (
+            {"other": models.VectorParams(size=384, distance=COSINE)},
+            "named vectors 'other' (size 384)",
+        ),
+        (
+            {VECTOR_NAME: models.VectorParams(size=768, distance=COSINE)},
+            f"named vectors '{VECTOR_NAME}' (size 768)",
+        ),
+    ],
+    ids=["unnamed", "other-name", "wrong-size"],
+)
+async def test_incompatible_collection_gives_clear_error(
+    embedding_provider_settings, vectors_config, found
+):
+    server = make_server(embedding_provider_settings, COLLECTION_NAME="foreign")
+    await server.qdrant_connector._client.create_collection(
+        "foreign", vectors_config=vectors_config
+    )
+    async with Client(server) as client:
+        for tool, args in [
+            ("qdrant-find", {"query": "asyncio"}),
+            ("qdrant-store", {"information": "asyncio tips"}),
+        ]:
+            with pytest.raises(ToolError) as error:
+                await client.call_tool(tool, args)
+            message = str(error.value)
+            assert "does not match the embedding model" in message
+            assert f"a vector named '{VECTOR_NAME}' with size 384" in message
+            assert found in message
+
+
+async def test_points_without_document_are_skipped_with_note(
+    embedding_provider_settings,
+):
+    server = make_server(embedding_provider_settings, COLLECTION_NAME="mixed")
+    async with Client(server) as client:
+        await client.call_tool("qdrant-store", {"information": "asyncio tips"})
+
+        # A point written by another tool: compatible vector, but no "document".
+        vector = await server.embedding_provider.embed_documents(["asyncio tricks"])
+        await server.qdrant_connector._client.upsert(
+            "mixed",
+            points=[
+                models.PointStruct(
+                    id=1, vector={VECTOR_NAME: vector[0]}, payload={"text": "tricks"}
+                )
+            ],
+        )
+
+        text = text_of(await client.call_tool("qdrant-find", {"query": "asyncio"}))
+        assert "asyncio tips" in text
+        assert "tricks" not in text
+        assert "Note: 1 matching point(s) were left out" in text
+
+
+async def test_only_points_without_document_returns_note(embedding_provider_settings):
+    server = make_server(embedding_provider_settings, COLLECTION_NAME="foreign_only")
+    connector = server.qdrant_connector
+    await connector._client.create_collection(
+        "foreign_only",
+        vectors_config={VECTOR_NAME: models.VectorParams(size=384, distance=COSINE)},
+    )
+    vectors = await server.embedding_provider.embed_documents(["one", "two"])
+    await connector._client.upsert(
+        "foreign_only",
+        points=[
+            models.PointStruct(id=i, vector={VECTOR_NAME: v}, payload={"text": "x"})
+            for i, v in enumerate(vectors)
+        ],
+    )
+    async with Client(server) as client:
+        text = text_of(await client.call_tool("qdrant-find", {"query": "one"}))
+        assert "<entry>" not in text
+        assert "Note: 2 matching point(s) were left out" in text
 
 
 async def test_read_only_hides_store(embedding_provider_settings):
@@ -199,3 +324,63 @@ async def test_tools_do_not_use_deprecated_mcp_logging(embedding_provider_settin
         w for w in caught if "logging capability is deprecated" in str(w.message)
     ]
     assert not deprecated
+
+
+async def timed_out(*args, **kwargs):
+    # What qdrant-client raises when Qdrant accepts the connection but does not answer.
+    try:
+        raise httpx.ReadTimeout("")
+    except httpx.ReadTimeout as error:
+        raise ResponseHandlingException(error)
+
+
+async def refused(*args, **kwargs):
+    try:
+        raise httpx.ConnectError("All connection attempts failed")
+    except httpx.ConnectError as error:
+        raise ResponseHandlingException(error)
+
+
+@pytest.mark.parametrize(
+    "tool, arguments, method",
+    [
+        ("qdrant-find", {"query": "hello"}, "search"),
+        ("qdrant-store", {"information": "hello"}, "store"),
+    ],
+)
+async def test_error_without_message_names_its_type(
+    embedding_provider_settings, monkeypatch, tool, arguments, method
+):
+    server = make_server(embedding_provider_settings, COLLECTION_NAME="errors")
+    monkeypatch.setattr(server.qdrant_connector, method, timed_out)
+
+    async with Client(server) as client:
+        with pytest.raises(ToolError) as excinfo:
+            await client.call_tool(tool, arguments)
+
+    assert str(excinfo.value) == (
+        f"Error calling tool '{tool}': ResponseHandlingException caused by ReadTimeout"
+    )
+
+
+@pytest.mark.parametrize(
+    "tool, arguments, method",
+    [
+        ("qdrant-find", {"query": "hello"}, "search"),
+        ("qdrant-store", {"information": "hello"}, "store"),
+    ],
+)
+async def test_error_with_message_is_unchanged(
+    embedding_provider_settings, monkeypatch, tool, arguments, method
+):
+    server = make_server(embedding_provider_settings, COLLECTION_NAME="errors")
+    monkeypatch.setattr(server.qdrant_connector, method, refused)
+
+    async with Client(server) as client:
+        with pytest.raises(ToolError) as excinfo:
+            await client.call_tool(tool, arguments)
+
+    assert (
+        str(excinfo.value)
+        == f"Error calling tool '{tool}': All connection attempts failed"
+    )
