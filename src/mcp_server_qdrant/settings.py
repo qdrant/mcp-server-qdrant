@@ -48,6 +48,15 @@ class EmbeddingProviderSettings(BaseSettings):
     )
 
 
+# The conditions that `make_filter` can turn into a Qdrant filter, for each field type.
+SUPPORTED_CONDITIONS: dict[str, tuple[str, ...]] = {
+    "keyword": ("==", "!=", "any", "except"),
+    "integer": ("==", "!=", ">", ">=", "<", "<=", "any", "except"),
+    "float": (">", ">=", "<", "<="),
+    "boolean": ("==", "!="),
+}
+
+
 class FilterableField(BaseModel):
     name: str = Field(description="The name of the field payload field to filter on")
     description: str = Field(
@@ -69,6 +78,20 @@ class FilterableField(BaseModel):
         default=False,
         description="Whether the field is required for the filter.",
     )
+
+    @model_validator(mode="after")
+    def check_condition_supported(self) -> "FilterableField":
+        """
+        Reject a condition the field type does not support when the settings
+        load, instead of exposing a filter that fails every time it is used.
+        """
+        supported = SUPPORTED_CONDITIONS[self.field_type]
+        if self.condition is not None and self.condition not in supported:
+            raise ValueError(
+                f"Condition '{self.condition}' is not supported for {self.field_type} "
+                f"field '{self.name}'. Supported conditions: {', '.join(supported)}."
+            )
+        return self
 
 
 class QdrantSettings(BaseSettings):
