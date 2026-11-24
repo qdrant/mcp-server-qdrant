@@ -98,10 +98,14 @@ uvx mcp-server-qdrant --transport sse
 Supported transport protocols:
 
 - `stdio` (default): Standard input/output transport, might only be used by local MCP clients
-- `sse`: Server-Sent Events transport, perfect for remote clients
-- `streamable-http`: Streamable HTTP transport, perfect for remote clients, more recent than SSE
+- `sse`: Server-Sent Events transport, for clients that connect over the network
+- `streamable-http`: Streamable HTTP transport, for clients that connect over the network, more recent than SSE
 
 The default transport is `stdio` if not specified.
+
+> [!WARNING]
+> The `sse` and `streamable-http` transports don't authenticate clients: anyone who can reach the port can use
+> the tools. See [Security](#security) before exposing the server on a network.
 
 When SSE transport is used, the server will listen on the specified port and wait for incoming connections. The default
 port is 8000, however it can be changed using the `FASTMCP_PORT` environment variable.
@@ -123,7 +127,7 @@ checkout, with the dependency versions from `uv.lock`:
 docker build -t mcp-server-qdrant .
 
 # Run the container
-docker run -p 8000:8000 \
+docker run -p 127.0.0.1:8000:8000 \
   -e FASTMCP_HOST="0.0.0.0" \
   -e QDRANT_URL="http://your-qdrant-server:6333" \
   -e QDRANT_API_KEY="your-api-key" \
@@ -134,6 +138,8 @@ docker run -p 8000:8000 \
 > [!TIP]
 > `FASTMCP_HOST="0.0.0.0"` makes the server listen on all network interfaces, which is necessary in a container.
 > The image sets it by default; the flag above is only needed for images built before this change.
+> `-p 127.0.0.1:8000:8000` publishes the port only on your own machine. See [Security](#security) before
+> making it reachable from other machines.
 
 The container runs the SSE transport by default. For clients that start the server themselves over stdio,
 override the command:
@@ -315,6 +321,10 @@ For one-click installation, click one of the install buttons below:
 
 [![Install with Docker in VS Code](https://img.shields.io/badge/VS_Code-Docker-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=qdrant&config=%7B%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22QDRANT_URL%22%2C%22-e%22%2C%22QDRANT_API_KEY%22%2C%22-e%22%2C%22COLLECTION_NAME%22%2C%22mcp-server-qdrant%22%2C%22mcp-server-qdrant%22%2C%22--transport%22%2C%22stdio%22%5D%2C%22env%22%3A%7B%22QDRANT_URL%22%3A%22%24%7Binput%3AqdrantUrl%7D%22%2C%22QDRANT_API_KEY%22%3A%22%24%7Binput%3AqdrantApiKey%7D%22%2C%22COLLECTION_NAME%22%3A%22%24%7Binput%3AcollectionName%7D%22%7D%7D&inputs=%5B%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22qdrantUrl%22%2C%22description%22%3A%22Qdrant+URL%22%7D%2C%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22qdrantApiKey%22%2C%22description%22%3A%22Qdrant+API+Key%22%2C%22password%22%3Atrue%7D%2C%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22collectionName%22%2C%22description%22%3A%22Collection+Name%22%7D%5D) [![Install with Docker in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Docker-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=qdrant&config=%7B%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22-i%22%2C%22--rm%22%2C%22-e%22%2C%22QDRANT_URL%22%2C%22-e%22%2C%22QDRANT_API_KEY%22%2C%22-e%22%2C%22COLLECTION_NAME%22%2C%22mcp-server-qdrant%22%2C%22mcp-server-qdrant%22%2C%22--transport%22%2C%22stdio%22%5D%2C%22env%22%3A%7B%22QDRANT_URL%22%3A%22%24%7Binput%3AqdrantUrl%7D%22%2C%22QDRANT_API_KEY%22%3A%22%24%7Binput%3AqdrantApiKey%7D%22%2C%22COLLECTION_NAME%22%3A%22%24%7Binput%3AcollectionName%7D%22%7D%7D&inputs=%5B%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22qdrantUrl%22%2C%22description%22%3A%22Qdrant+URL%22%7D%2C%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22qdrantApiKey%22%2C%22description%22%3A%22Qdrant+API+Key%22%2C%22password%22%3Atrue%7D%2C%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22collectionName%22%2C%22description%22%3A%22Collection+Name%22%7D%5D&quality=insiders)
 
+> [!NOTE]
+> The Docker buttons and configurations use a local image named `mcp-server-qdrant`. Build it first, as described in
+> [Using Docker](#using-docker): `docker build -t mcp-server-qdrant .`
+
 #### Manual Installation
 
 Add the following JSON block to your User Settings (JSON) file in VS Code. You can do this by pressing `Ctrl + Shift + P` and typing `Preferences: Open User Settings (JSON)`.
@@ -355,7 +365,7 @@ Add the following JSON block to your User Settings (JSON) file in VS Code. You c
 }
 ```
 
-Or if you prefer using Docker, add this configuration instead:
+Or if you prefer using Docker, [build the image](#using-docker) and add this configuration instead:
 
 ```json
 {
@@ -482,6 +492,46 @@ For workspace configuration with Docker, use this in `.vscode/mcp.json`:
   }
 }
 ```
+
+## Security
+
+### Network transports have no authentication
+
+With the `sse` and `streamable-http` transports, the server doesn't check who is connecting. Anyone who can reach the
+port can call `qdrant-find` and `qdrant-store`, with the access of the server's Qdrant API key.
+
+- By default, the server listens only on `127.0.0.1` (`FASTMCP_HOST`), so only your own machine can reach it.
+- The Docker image listens on `0.0.0.0`, because a server in a container has to. Publish the port only on your own
+  machine, with `-p 127.0.0.1:8000:8000` as in [Using Docker](#using-docker).
+- Don't expose the server to the internet or a shared network. If clients need to reach it remotely, put it behind a
+  reverse proxy that requires authentication.
+
+The `stdio` transport isn't reachable over the network: only the client that started the server can talk to it.
+
+### Give the server a Qdrant API key with only the access it needs
+
+The server can do whatever its Qdrant API key allows. Qdrant supports [read-only API keys and keys limited to specific
+collections](https://qdrant.tech/documentation/security/#read-only-api-key). On Qdrant Cloud, see
+[database API keys](https://qdrant.tech/documentation/cloud/authentication/).
+
+- With `QDRANT_READ_ONLY=true`, use a read-only key, so Qdrant itself refuses writes.
+- To limit the server to one collection, set `COLLECTION_NAME` and use a key scoped to that collection. A scoped key
+  can't create collections, so the collection has to exist before the first `qdrant-store`. Either:
+  - create it yourself, for example in the Qdrant Cloud console, with a vector named `fast-all-minilm-l6-v2`, size
+    `384`, and cosine distance. These match the default `EMBEDDING_MODEL`; if they don't match, the server's error
+    says which name and size it needs. If you use `FILTERABLE_FIELDS`, also create a payload index on
+    `metadata.<field name>` for each field.
+  - or let the server create it: run it once with a full-access key and store one entry, then switch to the scoped key.
+
+### Stored text is passed to the model
+
+`qdrant-find` puts the stored text in the model's context. Anyone who can write to the collection can store text that
+tries to give the model instructions (prompt injection). If other people or tools write to a collection, treat its
+content as untrusted, and use `QDRANT_READ_ONLY=true` when the model only needs to search it.
+
+### Reporting a vulnerability
+
+See [SECURITY.md](SECURITY.md).
 
 ## Contributing
 
