@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "qdrant",
+  "version": "1.0.0",
+  "description": "Qdrant stores semantic memories and finds related memories with vector search",
+  "author": {
+    "name": "Qdrant",
+    "url": "https://qdrant.tech"
+  },
+  "keywords": [
+    "qdrant",
+    "vector database",
+    "vector search",
+    "semantic search",
+    "similarity search",
+    "embeddings",
+    "retrieval",
+    "rag",
+    "memory",
+    "knowledge base"
+  ],
+  "homepage": "https://qdrant.tech/documentation/",
+  "repository": "https://github.com/qdrant/mcp-server-qdrant",
+  "license": "Apache-2.0"
+}

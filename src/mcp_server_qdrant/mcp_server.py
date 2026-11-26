@@ -1,8 +1,12 @@
 import json
-import logging
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as package_version
 from typing import Annotated, Any, Optional
+from xml.sax.saxutils import escape
 
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
+from fastmcp.utilities.logging import get_logger
 from pydantic import Field
 from qdrant_client import models
 
@@ -18,7 +22,36 @@ from mcp_server_qdrant.settings import (
     ToolSettings,
 )
 
-logger = logging.getLogger(__name__)
+# A child of FastMCP's logger, so it shares its handler and FASTMCP_LOG_LEVEL.
+logger = get_logger(__name__)
+
+
+def _server_version() -> str | None:
+    """Version of this package, reported to MCP clients in `serverInfo`."""
+    try:
+        return package_version("mcp-server-qdrant")
+    except PackageNotFoundError:
+        # Running from source without installing: let FastMCP use its default.
+        return None
+
+
+def _error_types(error: BaseException) -> str:
+    """Name the exception types in the cause chain, up to the first one with a message.
+
+    Some errors carry no message at all, such as `httpx.ReadTimeout("")` when Qdrant
+    does not answer in time, so the client would otherwise see an empty error.
+    """
+    names: list[str] = []
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        if names and str(current):
+            break
+        seen.add(id(current))
+        if not names or names[-1] != type(current).__name__:
+            names.append(type(current).__name__)
+        current = current.__cause__ or current.__context__
+    return " caused by ".join(names)
 
 
 # FastMCP is an alternative interface for declaring the capabilities
@@ -74,6 +107,8 @@ class QdrantMCPServer(FastMCP):
             make_indexes(qdrant_settings.filterable_fields_dict()),
         )
 
+        # Without this, FastMCP reports its own version as the server version.
+        settings.setdefault("version", _server_version())
         super().__init__(name=name, instructions=instructions, **settings)
 
         self.setup_tools()
@@ -81,9 +116,26 @@ class QdrantMCPServer(FastMCP):
     def format_entry(self, entry: Entry) -> str:
         """
         Feel free to override this method in your subclass to customize the format of the entry.
+
+        Content and metadata are XML-escaped so stored values cannot inject the
+        formatter's own tags (``</content>``, ``<metadata>`` and so on).
         """
         entry_metadata = json.dumps(entry.metadata) if entry.metadata else ""
-        return f"<entry><content>{entry.content}</content><metadata>{entry_metadata}</metadata></entry>"
+        return (
+            f"<entry><content>{escape(entry.content)}</content>"
+            f"<metadata>{escape(entry_metadata)}</metadata></entry>"
+        )
+
+    def format_skipped_note(self, skipped: int) -> str:
+        """
+        Tell the model that some matches were left out, so it does not treat
+        the results as complete.
+        """
+        return (
+            f"Note: {skipped} matching point(s) were left out because their payloads "
+            "have no 'document' field. This tool only returns points that store "
+            "their text in that field."
+        )
 
     def setup_tools(self):
         """
@@ -91,7 +143,6 @@ class QdrantMCPServer(FastMCP):
         """
 
         async def store(
-            ctx: Context,
             information: Annotated[str, Field(description="Text to store")],
             collection_name: Annotated[
                 str, Field(description="The collection to store the information in")
@@ -108,24 +159,31 @@ class QdrantMCPServer(FastMCP):
         ) -> str:
             """
             Store some information in Qdrant.
-            :param ctx: The context for the request.
             :param information: The information to store.
             :param metadata: JSON metadata to store with the information, optional.
             :param collection_name: The name of the collection to store the information in, optional. If not provided,
                                     the default collection is used.
             :return: A message indicating that the information was stored.
             """
-            await ctx.debug(f"Storing information {information} in Qdrant")
+            logger.debug("Storing information %s in Qdrant", information)
 
             entry = Entry(content=information, metadata=metadata)
 
-            await self.qdrant_connector.store(entry, collection_name=collection_name)
+            try:
+                await self.qdrant_connector.store(
+                    entry, collection_name=collection_name
+                )
+            except Exception as error:
+                if str(error):
+                    raise
+                raise ToolError(
+                    f"Error calling tool 'qdrant-store': {_error_types(error)}"
+                ) from error
             if collection_name:
                 return f"Remembered: {information} in collection {collection_name}"
             return f"Remembered: {information}"
 
         async def find(
-            ctx: Context,
             query: Annotated[str, Field(description="What to search for")],
             collection_name: Annotated[
                 str, Field(description="The collection to search in")
@@ -134,7 +192,6 @@ class QdrantMCPServer(FastMCP):
         ) -> list[str] | None:
             """
             Find memories in Qdrant.
-            :param ctx: The context for the request.
             :param query: The query to use for the search.
             :param collection_name: The name of the collection to search in, optional. If not provided,
                                     the default collection is used.
@@ -142,26 +199,34 @@ class QdrantMCPServer(FastMCP):
             :return: A list of entries found or None.
             """
 
-            # Log query_filter
-            await ctx.debug(f"Query filter: {query_filter}")
+            logger.debug("Query filter: %s", query_filter)
 
             query_filter = models.Filter(**query_filter) if query_filter else None
 
-            await ctx.debug(f"Finding results for query {query}")
+            logger.debug("Finding results for query %s", query)
 
-            entries = await self.qdrant_connector.search(
-                query,
-                collection_name=collection_name,
-                limit=self.qdrant_settings.search_limit,
-                query_filter=query_filter,
-            )
-            if not entries:
+            try:
+                entries = await self.qdrant_connector.search(
+                    query,
+                    collection_name=collection_name,
+                    limit=self.qdrant_settings.search_limit,
+                    query_filter=query_filter,
+                )
+            except Exception as error:
+                if str(error):
+                    raise
+                raise ToolError(
+                    f"Error calling tool 'qdrant-find': {_error_types(error)}"
+                ) from error
+            if not entries and entries.skipped == 0:
                 return None
             content = [
                 f"Results for the query '{query}'",
             ]
             for entry in entries:
                 content.append(self.format_entry(entry))
+            if entries.skipped > 0:
+                content.append(self.format_skipped_note(entries.skipped))
             return content
 
         find_foo = find
