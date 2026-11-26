@@ -2,6 +2,7 @@ import logging
 import uuid
 from collections.abc import Iterable
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel
 from qdrant_client import AsyncQdrantClient, models
@@ -14,6 +15,25 @@ logger = logging.getLogger(__name__)
 
 Metadata = dict[str, Any]
 ArbitraryFilter = dict[str, Any]
+
+
+def add_default_port(url: str) -> str:
+    """
+    Add the scheme's default port to an http(s) URL that has a path but no port.
+
+    Behind a reverse proxy, Qdrant is often served under a path, such as
+    https://example.com/qdrant on port 443. Without a port in the URL, the Qdrant
+    client connects to Qdrant's default port 6333 instead, and times out. The client
+    already keeps the path, so only the port is missing. URLs without a path, such as
+    http://localhost or ":memory:", are returned unchanged and keep the 6333 default.
+    """
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or parts.path in ("", "/"):
+        return url
+    if parts.port is not None:
+        return url
+    port = 443 if parts.scheme == "https" else 80
+    return urlunsplit(parts._replace(netloc=f"{parts.netloc}:{port}"))
 
 
 class Entry(BaseModel):
@@ -67,24 +87,11 @@ class QdrantConnector:
         self._qdrant_api_key = qdrant_api_key
         self._default_collection_name = collection_name
         self._embedding_provider = embedding_provider
-
-        # Support URL with path prefix (e.g., https://host.com/qdrant)
-        client_kwargs = {"api_key": qdrant_api_key, "path": qdrant_local_path}
-        if qdrant_url and not qdrant_local_path:
-            from urllib.parse import urlparse
-
-            parsed = urlparse(qdrant_url.rstrip("/"))
-            prefix = parsed.path.lstrip("/") if parsed.path and parsed.path != "/" else None
-            if prefix:
-                base_url = f"{parsed.scheme}://{parsed.hostname}"
-                port = parsed.port or (443 if parsed.scheme == "https" else 80)
-                client_kwargs.update({"location": base_url, "port": port, "prefix": prefix})
-            else:
-                client_kwargs["location"] = qdrant_url
-        else:
-            client_kwargs["location"] = qdrant_url
-
-        self._client = AsyncQdrantClient(**client_kwargs)
+        self._client = AsyncQdrantClient(
+            location=add_default_port(qdrant_url) if qdrant_url else None,
+            api_key=qdrant_api_key,
+            path=qdrant_local_path,
+        )
         self._field_indexes = field_indexes
 
     async def get_collection_names(self) -> list[str]:
