@@ -515,12 +515,13 @@ collections](https://qdrant.tech/documentation/security/#read-only-api-key). On 
 [database API keys](https://qdrant.tech/documentation/cloud/authentication/).
 
 - With `QDRANT_READ_ONLY=true`, use a read-only key, so Qdrant itself refuses writes.
+- The server creates the payload indexes for `FILTERABLE_FIELDS` itself when its key can write to the collection. With
+  a read-only key, create an index on `metadata.<field name>` for each field with a key that can write.
 - To limit the server to one collection, set `COLLECTION_NAME` and use a key scoped to that collection. A scoped key
   can't create collections, so the collection has to exist before the first `qdrant-store`. Either:
   - create it yourself, for example in the Qdrant Cloud console, with a vector named `fast-all-minilm-l6-v2`, size
     `384`, and cosine distance. These match the default `EMBEDDING_MODEL`; if they don't match, the server's error
-    says which name and size it needs. If you use `FILTERABLE_FIELDS`, also create a payload index on
-    `metadata.<field name>` for each field.
+    says which name and size it needs.
   - or let the server create it: run it once with a full-access key and store one entry, then switch to the scoped key.
 
 ### Stored text is passed to the model
