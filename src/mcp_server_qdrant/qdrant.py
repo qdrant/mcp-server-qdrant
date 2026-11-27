@@ -2,6 +2,7 @@ import logging
 import uuid
 from collections.abc import Iterable
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel
 from qdrant_client import AsyncQdrantClient, models
@@ -14,6 +15,25 @@ logger = logging.getLogger(__name__)
 
 Metadata = dict[str, Any]
 ArbitraryFilter = dict[str, Any]
+
+
+def add_default_port(url: str) -> str:
+    """
+    Add the scheme's default port to an http(s) URL that has a path but no port.
+
+    Behind a reverse proxy, Qdrant is often served under a path, such as
+    https://example.com/qdrant on port 443. Without a port in the URL, the Qdrant
+    client connects to Qdrant's default port 6333 instead, and times out. The client
+    already keeps the path, so only the port is missing. URLs without a path, such as
+    http://localhost or ":memory:", are returned unchanged and keep the 6333 default.
+    """
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or parts.path in ("", "/"):
+        return url
+    if parts.port is not None:
+        return url
+    port = 443 if parts.scheme == "https" else 80
+    return urlunsplit(parts._replace(netloc=f"{parts.netloc}:{port}"))
 
 
 class Entry(BaseModel):
@@ -68,7 +88,9 @@ class QdrantConnector:
         self._default_collection_name = collection_name
         self._embedding_provider = embedding_provider
         self._client = AsyncQdrantClient(
-            location=qdrant_url, api_key=qdrant_api_key, path=qdrant_local_path
+            location=add_default_port(qdrant_url) if qdrant_url else None,
+            api_key=qdrant_api_key,
+            path=qdrant_local_path,
         )
         self._field_indexes = field_indexes
 
