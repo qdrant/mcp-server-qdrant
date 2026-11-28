@@ -121,9 +121,12 @@ class QdrantMCPServer(FastMCP):
         formatter's own tags (``</content>``, ``<metadata>`` and so on).
         """
         entry_metadata = json.dumps(entry.metadata) if entry.metadata else ""
+        entry_score = (
+            f"<score>{entry.score:.4f}</score>" if entry.score is not None else ""
+        )
         return (
             f"<entry><content>{escape(entry.content)}</content>"
-            f"<metadata>{escape(entry_metadata)}</metadata></entry>"
+            f"<metadata>{escape(entry_metadata)}</metadata>{entry_score}</entry>"
         )
 
     def format_skipped_note(self, skipped: int) -> str:
@@ -211,6 +214,7 @@ class QdrantMCPServer(FastMCP):
                     collection_name=collection_name,
                     limit=self.qdrant_settings.search_limit,
                     query_filter=query_filter,
+                    score_threshold=self.qdrant_settings.score_threshold,
                 )
             except Exception as error:
                 if str(error):
