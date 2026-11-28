@@ -67,7 +67,11 @@ async def test_default_config_exposes_collection_name(embedding_provider_setting
     server = make_server(embedding_provider_settings)
     async with Client(server) as client:
         tools = await client.list_tools()
-        assert {t.name for t in tools} == {"qdrant-find", "qdrant-store"}
+        assert {t.name for t in tools} == {
+            "qdrant-find",
+            "qdrant-store",
+            "qdrant-list-collections",
+        }
 
         find = schema_of(tools, "qdrant-find")
         assert set(find["properties"]) == {"query", "collection_name"}
@@ -324,6 +328,35 @@ async def test_tools_do_not_use_deprecated_mcp_logging(embedding_provider_settin
         w for w in caught if "logging capability is deprecated" in str(w.message)
     ]
     assert not deprecated
+
+
+async def test_list_collections(embedding_provider_settings):
+    server = make_server(embedding_provider_settings)
+    names = [f"test_collection_{uuid.uuid4().hex}" for _ in range(2)]
+    async with Client(server) as client:
+        for name in names:
+            await client.call_tool(
+                "qdrant-store", {"information": "test", "collection_name": name}
+            )
+        listed = text_of(await client.call_tool("qdrant-list-collections", {}))
+    for name in names:
+        assert name in listed
+
+
+async def test_list_collections_read_only(embedding_provider_settings):
+    server = make_server(embedding_provider_settings, QDRANT_READ_ONLY=True)
+    async with Client(server) as client:
+        tools = {t.name for t in await client.list_tools()}
+    assert tools == {"qdrant-find", "qdrant-list-collections"}
+
+
+async def test_list_collections_hidden_with_default_collection(
+    embedding_provider_settings,
+):
+    server = make_server(embedding_provider_settings, COLLECTION_NAME="default")
+    async with Client(server) as client:
+        tools = {t.name for t in await client.list_tools()}
+    assert "qdrant-list-collections" not in tools
 
 
 async def timed_out(*args, **kwargs):
